@@ -1,6 +1,9 @@
 pref-title = Hover Abstract
 pref-enable =
     .label = Enable
+pref-enableExternalLookups =
+    .label = Also check Crossref and Semantic Scholar when not in your library
+pref-enableExternalLookups-help = Off by default: only your local Zotero library is checked, and nothing is sent anywhere. Turning this on sends the reference text of citations not in your library to Crossref and Semantic Scholar to look up their abstracts.
 pref-s2ApiKey = Semantic Scholar API key:
-pref-s2ApiKey-help = Optional but recommended — a free key (request one at semanticscholar.org/product/api) avoids rate limits on the shared unauthenticated tier. Crossref and your local library are used regardless.
+pref-s2ApiKey-help = Optional but recommended if external lookups are enabled above — a free key (request one at semanticscholar.org/product/api) avoids rate limits on the shared unauthenticated tier. Has no effect otherwise.
 pref-help = { $name } Build { $version } { $time }

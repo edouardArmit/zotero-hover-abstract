@@ -93,6 +93,12 @@ async function resolveAndInject(
     parsed.title ?? parsed.raw,
   );
 
+  if (!getPref("enableExternalLookups")) {
+    setCachedAbstract(parsed, null);
+    injectNoAbstractFoundLabel(referenceRowEl);
+    return;
+  }
+
   let remote = await fetchCrossrefAbstract(parsed).catch((e) => {
     ztoolkit.log(`[${config.addonRef}] Crossref lookup failed:`, e);
     return undefined;
