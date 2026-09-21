@@ -1,7 +1,7 @@
 {
   "name": "zotero-hover-abstract",
   "type": "module",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "Shows fetched abstracts in Zotero's native citation hover popup",
   "config": {
     "addonName": "Zotero Hover Abstract",

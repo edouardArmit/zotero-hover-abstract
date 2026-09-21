@@ -4,7 +4,11 @@
 // @ts-nocheck
 export type FluentMessageId =
   | 'pref-enable'
+  | 'pref-enableExternalLookups'
+  | 'pref-enableExternalLookups-help'
   | 'pref-help'
+  | 'pref-s2ApiKey'
+  | 'pref-s2ApiKey-help'
   | 'pref-title'
   | 'startup-begin'
   | 'startup-finish';

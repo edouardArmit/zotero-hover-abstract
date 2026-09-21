@@ -1,11 +1,13 @@
 import { config } from "../../package.json";
 import { getCachedAbstract, setCachedAbstract } from "./abstractCache";
+import { fetchCrossrefAbstract } from "./crossref";
 import { resolveLocalAbstract } from "./libraryResolver";
 import {
   injectAbstractIntoRow,
   injectNoAbstractFoundLabel,
 } from "./popupInjector";
 import { parseReferenceText, type ParsedReference } from "./referenceParser";
+import { fetchSemanticScholarAbstract } from "./semanticScholar";
 import { getPref } from "../utils/prefs";
 
 // Zotero's native citation-hover popup (reader._iframeWindow, class "citation-popup")
@@ -80,14 +82,44 @@ async function resolveAndInject(
     ztoolkit.log(`[${config.addonRef}] local search failed:`, e);
     return undefined;
   });
-
-  setCachedAbstract(parsed, local?.abstractNote ?? null);
   if (local) {
     ztoolkit.log(`[${config.addonRef}] local abstract found:`, local);
+    setCachedAbstract(parsed, local.abstractNote);
     injectAbstractIntoRow(referenceRowEl, local.abstractNote);
+    return;
+  }
+  ztoolkit.log(
+    `[${config.addonRef}] no local abstract for:`,
+    parsed.title ?? parsed.raw,
+  );
+
+  if (!getPref("enableExternalLookups")) {
+    setCachedAbstract(parsed, null);
+    injectNoAbstractFoundLabel(referenceRowEl);
+    return;
+  }
+
+  let remote = await fetchCrossrefAbstract(parsed).catch((e) => {
+    ztoolkit.log(`[${config.addonRef}] Crossref lookup failed:`, e);
+    return undefined;
+  });
+  let source = "Crossref";
+
+  if (!remote) {
+    remote = await fetchSemanticScholarAbstract(parsed).catch((e) => {
+      ztoolkit.log(`[${config.addonRef}] Semantic Scholar lookup failed:`, e);
+      return undefined;
+    });
+    source = "Semantic Scholar";
+  }
+
+  setCachedAbstract(parsed, remote ?? null);
+  if (remote) {
+    ztoolkit.log(`[${config.addonRef}] ${source} abstract found:`, remote);
+    injectAbstractIntoRow(referenceRowEl, remote);
   } else {
     ztoolkit.log(
-      `[${config.addonRef}] no local abstract for:`,
+      `[${config.addonRef}] no external abstract for:`,
       parsed.title ?? parsed.raw,
     );
     injectNoAbstractFoundLabel(referenceRowEl);

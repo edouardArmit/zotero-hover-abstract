@@ -4,8 +4,8 @@
 // A popup can contain multiple .reference-row elements when the in-text
 // citation groups several works together (e.g. "[27, 33]") - each row gets
 // its own injected content, keyed to that row specifically, not the popup
-// as a whole (otherwise multiple results in one popup would be ambiguous
-// about which reference they belong to).
+// as a whole (otherwise multiple abstracts injected at the popup level would
+// be ambiguous about which reference they belong to).
 
 const INJECTED_MARKER = "data-hoverabstract-injected";
 
@@ -41,7 +41,7 @@ export function injectNoAbstractFoundLabel(referenceRowEl: Element): void {
   if (!doc) return;
 
   const label = doc.createElement("div");
-  label.textContent = "No abstract found in your library";
+  label.textContent = "No abstract found";
   label.setAttribute(
     "style",
     `${DIVIDER_STYLE} font-style: italic; opacity: 0.6;`,
