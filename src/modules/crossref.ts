@@ -1,3 +1,4 @@
+import { config } from "../../package.json";
 import type { ParsedReference } from "./referenceParser";
 
 // No `mailto` politeness param here on purpose - that would mean putting the
@@ -39,11 +40,15 @@ async function requestJSON(url: string): Promise<any | undefined> {
     const xhr = await Zotero.HTTP.request("GET", url, {
       responseType: "json",
       timeout: REQUEST_TIMEOUT_MS,
+      // See semanticScholar.ts - disable Zotero.HTTP.request's own built-in
+      // retry-on-error so behavior here stays simple and predictable (a
+      // single request, single catch), consistent across both providers.
+      errorDelayMax: 0,
     });
     return xhr.response;
-  } catch {
-    // Network failure, timeout, or non-2xx (e.g. no match for a DOI lookup) -
-    // all just mean "no abstract available this way", not an error to surface.
+  } catch (e) {
+    // Network failure, timeout, or non-2xx (e.g. no match for a DOI lookup).
+    ztoolkit.log(`[${config.addonRef}] Crossref request failed for ${url}:`, e);
     return undefined;
   }
 }

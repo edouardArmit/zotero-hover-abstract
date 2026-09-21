@@ -7,12 +7,11 @@ export default defineConfig({
   name: pkg.config.addonName,
   id: pkg.config.addonID,
   namespace: pkg.config.addonRef,
-  // No git remote/release host is set up yet for this project (still local-only dev).
-  // A placeholder is required here because the built manifest's update_url must be a
-  // valid URL (even for temporary/dev installs) or Zotero rejects the extension outright.
-  // Revisit once this is pushed to a real repo and released.
-  updateURL: "https://example.com/update.json",
-  xpiDownloadLink: "https://example.com/plugin.xpi",
+  updateURL: `https://github.com/{{owner}}/{{repo}}/releases/download/release/${
+    pkg.version.includes("-") ? "update-beta.json" : "update.json"
+  }`,
+  xpiDownloadLink:
+    "https://github.com/{{owner}}/{{repo}}/releases/download/v{{version}}/{{xpiName}}.xpi",
 
   build: {
     assets: ["addon/**/*.*"],
@@ -32,6 +31,12 @@ export default defineConfig({
         entryPoints: ["src/index.ts"],
         define: {
           __env__: `"${process.env.NODE_ENV}"`,
+          // TEMPORARY, for joint dev testing of the Semantic Scholar API key
+          // only - read from the gitignored .env, never hardcoded. The real
+          // Stage 5 preferences field replaces this build-time constant.
+          __s2ApiKey__: JSON.stringify(
+            process.env.HOVERABSTRACT_S2_API_KEY ?? "",
+          ),
         },
         bundle: true,
         target: "firefox115",

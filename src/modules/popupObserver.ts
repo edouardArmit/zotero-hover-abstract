@@ -4,6 +4,7 @@ import { fetchCrossrefAbstract } from "./crossref";
 import { resolveLocalAbstract } from "./libraryResolver";
 import { injectAbstractIntoPopup } from "./popupInjector";
 import { parseReferenceText, type ParsedReference } from "./referenceParser";
+import { fetchSemanticScholarAbstract } from "./semanticScholar";
 
 // Zotero's native citation-hover popup (reader._iframeWindow, class "citation-popup")
 // is an undocumented internal implementation detail, not a public plugin API.
@@ -78,17 +79,27 @@ async function resolveAndInject(
     parsed.title ?? parsed.raw,
   );
 
-  const remote = await fetchCrossrefAbstract(parsed).catch((e) => {
+  let remote = await fetchCrossrefAbstract(parsed).catch((e) => {
     ztoolkit.log(`[${config.addonRef}] Crossref lookup failed:`, e);
     return undefined;
   });
+  let source = "Crossref";
+
+  if (!remote) {
+    remote = await fetchSemanticScholarAbstract(parsed).catch((e) => {
+      ztoolkit.log(`[${config.addonRef}] Semantic Scholar lookup failed:`, e);
+      return undefined;
+    });
+    source = "Semantic Scholar";
+  }
+
   setCachedAbstract(parsed, remote ?? null);
   if (remote) {
-    ztoolkit.log(`[${config.addonRef}] Crossref abstract found:`, remote);
+    ztoolkit.log(`[${config.addonRef}] ${source} abstract found:`, remote);
     injectAbstractIntoPopup(popupEl, remote);
   } else {
     ztoolkit.log(
-      `[${config.addonRef}] no Crossref abstract for:`,
+      `[${config.addonRef}] no external abstract for:`,
       parsed.title ?? parsed.raw,
     );
   }
