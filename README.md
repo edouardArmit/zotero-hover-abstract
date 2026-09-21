@@ -43,6 +43,11 @@ When external lookups are used, this plugin queries the [Semantic Scholar API](h
 4. In the dev Zotero, go to **Zotero app menu → Settings → Zotero Hover Abstract** (not Tools → Plugins — that's Firefox's generic Add-ons Manager and has no link to this pane) to turn on external lookups and optionally enter a [free Semantic Scholar API key](https://www.semanticscholar.org/product/api#api-key-form). These are real preferences (`Zotero.Prefs`), not build-time secrets, so nothing is ever baked into the built plugin.
 5. `npm run build` — produces a `.xpi` in `.scaffold/build/` you can install manually via Zotero's Tools → Plugins → gear icon → "Install Plugin From File".
 
+## Testing
+
+- `npm run test:unit` — fast, offline unit tests (mocha + chai, via `tsx` as the TS/ESM loader) for the pure-logic modules that don't touch the `Zotero` API: `referenceParser.ts` and `abstractCache.ts` (`test/unit/`). No Zotero instance needed; these run in plain Node and are wired into CI.
+- `npm run test` — integration tests (`zotero-plugin test`, `test/startup.test.ts`) that launch a real headless Zotero instance to verify the plugin actually loads. Slower, and the only option for anything that touches `Zotero.*` APIs (reader detection, library search, HTTP calls) - those aren't currently unit-testable without mocking Zotero's globals, which none of this project's tests do yet.
+
 ## Project structure
 
 ```
@@ -63,4 +68,6 @@ src/modules/popupInjector.ts     - appends the found abstract (or a "not found" 
 src/modules/preferenceScript.ts  - preferences pane logic
 src/utils/prefs.ts               - typed Zotero.Prefs get/set/clear wrappers
 src/utils/                       - locale, ztoolkit, window helpers
+test/unit/                       - offline unit tests for pure-logic modules (npm run test:unit)
+test/startup.test.ts             - Zotero-integration test (npm run test)
 ```
