@@ -1,7 +1,10 @@
 import { config } from "../../package.json";
 import { getCachedAbstract, setCachedAbstract } from "./abstractCache";
 import { resolveLocalAbstract } from "./libraryResolver";
-import { injectAbstractIntoPopup } from "./popupInjector";
+import {
+  injectAbstractIntoPopup,
+  injectNoAbstractFoundLabel,
+} from "./popupInjector";
 import { parseReferenceText, type ParsedReference } from "./referenceParser";
 
 // Zotero's native citation-hover popup (reader._iframeWindow, class "citation-popup")
@@ -58,7 +61,11 @@ async function resolveAndInject(
 ): Promise<void> {
   const cached = getCachedAbstract(parsed);
   if (cached !== undefined) {
-    if (cached) injectAbstractIntoPopup(popupEl, cached);
+    if (cached) {
+      injectAbstractIntoPopup(popupEl, cached);
+    } else {
+      injectNoAbstractFoundLabel(popupEl);
+    }
     return;
   }
 
@@ -76,6 +83,7 @@ async function resolveAndInject(
       `[${config.addonRef}] no local abstract for:`,
       parsed.title ?? parsed.raw,
     );
+    injectNoAbstractFoundLabel(popupEl);
   }
 }
 
