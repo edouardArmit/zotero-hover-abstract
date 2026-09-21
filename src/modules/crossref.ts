@@ -1,5 +1,6 @@
 import { config } from "../../package.json";
 import type { ParsedReference } from "./referenceParser";
+import { stripXmlTags } from "./textUtils";
 
 // No `mailto` politeness param here on purpose - that would mean putting the
 // user's email in a URL sent to a third-party service without them having
@@ -19,20 +20,29 @@ export async function fetchCrossrefAbstract(
   return undefined;
 }
 
+export function buildDoiUrl(doi: string): string {
+  return `https://api.crossref.org/works/${encodeURIComponent(doi)}`;
+}
+
+export function buildBibliographicQueryUrl(
+  title: string,
+  authors: string | undefined,
+): string {
+  const query = [title, authors].filter(Boolean).join(" ");
+  return `https://api.crossref.org/works?query.bibliographic=${encodeURIComponent(query)}&rows=1`;
+}
+
 async function fetchByDOI(doi: string): Promise<string | undefined> {
-  const url = `https://api.crossref.org/works/${encodeURIComponent(doi)}`;
-  const message = await requestJSON(url);
-  return extractPlainText(message?.message?.abstract);
+  const message = await requestJSON(buildDoiUrl(doi));
+  return stripXmlTags(message?.message?.abstract);
 }
 
 async function fetchByBibliographicQuery(
   title: string,
   authors: string | undefined,
 ): Promise<string | undefined> {
-  const query = [title, authors].filter(Boolean).join(" ");
-  const url = `https://api.crossref.org/works?query.bibliographic=${encodeURIComponent(query)}&rows=1`;
-  const message = await requestJSON(url);
-  return extractPlainText(message?.message?.items?.[0]?.abstract);
+  const message = await requestJSON(buildBibliographicQueryUrl(title, authors));
+  return stripXmlTags(message?.message?.items?.[0]?.abstract);
 }
 
 async function requestJSON(url: string): Promise<any | undefined> {
@@ -51,15 +61,4 @@ async function requestJSON(url: string): Promise<any | undefined> {
     ztoolkit.log(`[${config.addonRef}] Crossref request failed for ${url}:`, e);
     return undefined;
   }
-}
-
-// Crossref abstracts are JATS-XML fragments (e.g. "<jats:p>...</jats:p>") -
-// strip tags down to plain text for display.
-function extractPlainText(jatsXml: string | undefined): string | undefined {
-  if (!jatsXml) return undefined;
-  const text = jatsXml
-    .replace(/<[^>]+>/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-  return text || undefined;
 }

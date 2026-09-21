@@ -1,6 +1,7 @@
 import { config } from "../../package.json";
 import { getPref } from "../utils/prefs";
 import type { ParsedReference } from "./referenceParser";
+import { normalizeText } from "./textUtils";
 
 // Tried as a secondary fallback after Crossref: Crossref abstract coverage is
 // inconsistent (many publishers, notably ACM, don't deposit abstracts at
@@ -30,16 +31,22 @@ export async function fetchSemanticScholarAbstract(
   return undefined;
 }
 
+export function buildDoiUrl(doi: string): string {
+  return `${BASE_URL}/DOI:${encodeURIComponent(doi)}?fields=abstract`;
+}
+
+export function buildTitleSearchUrl(title: string): string {
+  return `${BASE_URL}/search?query=${encodeURIComponent(title)}&fields=title,abstract&limit=1`;
+}
+
 async function fetchByDOI(doi: string): Promise<string | undefined> {
-  const url = `${BASE_URL}/DOI:${encodeURIComponent(doi)}?fields=abstract`;
-  const data = await requestJSON(url);
-  return normalize(data?.abstract);
+  const data = await requestJSON(buildDoiUrl(doi));
+  return normalizeText(data?.abstract);
 }
 
 async function fetchByTitleSearch(title: string): Promise<string | undefined> {
-  const url = `${BASE_URL}/search?query=${encodeURIComponent(title)}&fields=title,abstract&limit=1`;
-  const data = await requestJSON(url);
-  return normalize(data?.data?.[0]?.abstract);
+  const data = await requestJSON(buildTitleSearchUrl(title));
+  return normalizeText(data?.data?.[0]?.abstract);
 }
 
 async function requestJSON(url: string): Promise<any | undefined> {
@@ -60,7 +67,7 @@ async function requestJSON(url: string): Promise<any | undefined> {
       return xhr.response;
     } catch (e) {
       const status = getStatus(e);
-      const isThrottled = status === 429 || (status ?? 0) >= 500;
+      const isThrottled = isThrottledStatus(status);
       const attemptsLeft = attempt < MAX_RETRIES;
 
       if (!isThrottled || !attemptsLeft) {
@@ -83,8 +90,13 @@ function apiKeyHeaders(): Record<string, string> | undefined {
   return apiKey ? { "x-api-key": apiKey } : undefined;
 }
 
-function getStatus(e: any): number | undefined {
+export function getStatus(e: any): number | undefined {
   return e?.status ?? e?.xmlhttp?.status;
+}
+
+/** 429 (rate limited) or any 5xx (server error) is worth retrying; anything else isn't. */
+export function isThrottledStatus(status: number | undefined): boolean {
+  return status === 429 || (status ?? 0) >= 500;
 }
 
 // zotero-types doesn't declare Bluebird's static `.delay`, though it exists
@@ -112,8 +124,4 @@ function logRequestFailure(url: string, e: any, attempt: number): void {
     allResponseHeaders: xhr?.getAllResponseHeaders?.(),
     message: e?.message ?? String(e),
   });
-}
-
-function normalize(text: string | null | undefined): string | undefined {
-  return text?.trim() || undefined;
 }
