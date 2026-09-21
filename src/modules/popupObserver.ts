@@ -8,6 +8,7 @@ import {
 } from "./popupInjector";
 import { parseReferenceText, type ParsedReference } from "./referenceParser";
 import { fetchSemanticScholarAbstract } from "./semanticScholar";
+import { getPref } from "../utils/prefs";
 
 // Zotero's native citation-hover popup (reader._iframeWindow, class "citation-popup")
 // is an undocumented internal implementation detail, not a public plugin API.
@@ -65,6 +66,8 @@ async function resolveAndInject(
   parsed: ParsedReference,
   referenceRowEl: Element,
 ): Promise<void> {
+  if (!getPref("enable")) return;
+
   const cached = getCachedAbstract(parsed);
   if (cached !== undefined) {
     if (cached) {

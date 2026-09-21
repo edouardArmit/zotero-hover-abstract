@@ -1,4 +1,5 @@
 import { config } from "../../package.json";
+import { getPref } from "../utils/prefs";
 import type { ParsedReference } from "./referenceParser";
 
 // Tried as a secondary fallback after Crossref: Crossref abstract coverage is
@@ -54,7 +55,7 @@ async function requestJSON(url: string): Promise<any | undefined> {
         // is the only one running - otherwise the two stack, multiplying
         // actual requests sent and muddying what's actually happening.
         errorDelayMax: 0,
-        headers: __s2ApiKey__ ? { "x-api-key": __s2ApiKey__ } : undefined,
+        headers: apiKeyHeaders(),
       });
       return xhr.response;
     } catch (e) {
@@ -75,6 +76,11 @@ async function requestJSON(url: string): Promise<any | undefined> {
     }
   }
   return undefined;
+}
+
+function apiKeyHeaders(): Record<string, string> | undefined {
+  const apiKey = getPref("semanticScholarApiKey");
+  return apiKey ? { "x-api-key": apiKey } : undefined;
 }
 
 function getStatus(e: any): number | undefined {

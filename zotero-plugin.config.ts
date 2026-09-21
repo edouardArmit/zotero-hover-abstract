@@ -31,12 +31,6 @@ export default defineConfig({
         entryPoints: ["src/index.ts"],
         define: {
           __env__: `"${process.env.NODE_ENV}"`,
-          // TEMPORARY, for joint dev testing of the Semantic Scholar API key
-          // only - read from the gitignored .env, never hardcoded. The real
-          // Stage 5 preferences field replaces this build-time constant.
-          __s2ApiKey__: JSON.stringify(
-            process.env.HOVERABSTRACT_S2_API_KEY ?? "",
-          ),
         },
         bundle: true,
         target: "firefox115",

@@ -16,6 +16,3 @@ declare const rootURI: string;
 declare const addon: import("../src/addon").default;
 
 declare const __env__: "production" | "development";
-
-// TEMPORARY - see zotero-plugin.config.ts. Empty string when unset.
-declare const __s2ApiKey__: string;

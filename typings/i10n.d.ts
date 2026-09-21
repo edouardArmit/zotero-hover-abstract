@@ -5,6 +5,8 @@
 export type FluentMessageId =
   | 'pref-enable'
   | 'pref-help'
+  | 'pref-s2ApiKey'
+  | 'pref-s2ApiKey-help'
   | 'pref-title'
   | 'startup-begin'
   | 'startup-finish';

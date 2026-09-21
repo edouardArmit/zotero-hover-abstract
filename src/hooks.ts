@@ -14,6 +14,16 @@ async function onStartup() {
 
   initLocale();
 
+  // Without this, the preferences.xhtml pane exists and loads fine on its
+  // own (verified via chrome://.../preferences.xhtml directly), but Zotero
+  // never surfaces a way to open it - no "Preferences" entry appears for
+  // the plugin in Tools > Plugins at all.
+  await Zotero.PreferencePanes.register({
+    pluginID: addon.data.config.addonID,
+    src: rootURI + "content/preferences.xhtml",
+    label: addon.data.config.addonName,
+  });
+
   registerReaderNotifier();
   attachToAlreadyOpenReaders();
 
