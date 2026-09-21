@@ -2,7 +2,10 @@ import { config } from "../../package.json";
 import { getCachedAbstract, setCachedAbstract } from "./abstractCache";
 import { fetchCrossrefAbstract } from "./crossref";
 import { resolveLocalAbstract } from "./libraryResolver";
-import { injectAbstractIntoPopup } from "./popupInjector";
+import {
+  injectAbstractIntoRow,
+  injectNoAbstractFoundLabel,
+} from "./popupInjector";
 import { parseReferenceText, type ParsedReference } from "./referenceParser";
 import { fetchSemanticScholarAbstract } from "./semanticScholar";
 
@@ -37,15 +40,19 @@ export function attachToReader(reader: _ZoteroTypes.ReaderInstance): void {
         const el = node as Element;
         if (!el.classList.contains(CITATION_POPUP_CLASS)) continue;
 
-        const referenceText = el
-          .querySelector(REFERENCE_TEXT_SELECTOR)
-          ?.textContent?.trim();
-        if (!referenceText) continue;
+        // A grouped in-text citation (e.g. "[27, 33]") renders as multiple
+        // .reference-row elements in one popup - handle every row, not just
+        // the first (querySelector would silently drop the rest).
+        const referenceRows = el.querySelectorAll(REFERENCE_TEXT_SELECTOR);
+        for (const row of referenceRows) {
+          const referenceText = row.textContent?.trim();
+          if (!referenceText) continue;
 
-        const parsed = parseReferenceText(referenceText);
-        ztoolkit.log(`[${config.addonRef}] parsed reference:`, parsed);
+          const parsed = parseReferenceText(referenceText);
+          ztoolkit.log(`[${config.addonRef}] parsed reference:`, parsed);
 
-        resolveAndInject(parsed, el);
+          resolveAndInject(parsed, row);
+        }
       }
     }
   });
@@ -56,11 +63,15 @@ export function attachToReader(reader: _ZoteroTypes.ReaderInstance): void {
 
 async function resolveAndInject(
   parsed: ParsedReference,
-  popupEl: Element,
+  referenceRowEl: Element,
 ): Promise<void> {
   const cached = getCachedAbstract(parsed);
   if (cached !== undefined) {
-    if (cached) injectAbstractIntoPopup(popupEl, cached);
+    if (cached) {
+      injectAbstractIntoRow(referenceRowEl, cached);
+    } else {
+      injectNoAbstractFoundLabel(referenceRowEl);
+    }
     return;
   }
 
@@ -71,7 +82,7 @@ async function resolveAndInject(
   if (local) {
     ztoolkit.log(`[${config.addonRef}] local abstract found:`, local);
     setCachedAbstract(parsed, local.abstractNote);
-    injectAbstractIntoPopup(popupEl, local.abstractNote);
+    injectAbstractIntoRow(referenceRowEl, local.abstractNote);
     return;
   }
   ztoolkit.log(
@@ -96,12 +107,13 @@ async function resolveAndInject(
   setCachedAbstract(parsed, remote ?? null);
   if (remote) {
     ztoolkit.log(`[${config.addonRef}] ${source} abstract found:`, remote);
-    injectAbstractIntoPopup(popupEl, remote);
+    injectAbstractIntoRow(referenceRowEl, remote);
   } else {
     ztoolkit.log(
       `[${config.addonRef}] no external abstract for:`,
       parsed.title ?? parsed.raw,
     );
+    injectNoAbstractFoundLabel(referenceRowEl);
   }
 }
 
