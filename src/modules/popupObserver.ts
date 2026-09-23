@@ -94,7 +94,10 @@ async function resolveAndInject(
   );
 
   if (!getPref("enableExternalLookups")) {
-    setCachedAbstract(parsed, null);
+    // Deliberately not cached: this "not found" is a consequence of the
+    // pref being off, not a confirmed miss. Caching it would leave stale
+    // results in place if the user later turns external lookups on and
+    // re-hovers the same citation within the same session.
     injectNoAbstractFoundLabel(referenceRowEl);
     return;
   }
