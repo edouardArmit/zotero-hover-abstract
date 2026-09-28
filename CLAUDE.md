@@ -26,6 +26,17 @@ npm run test         # zotero-plugin test - integration test, launches real head
 
 **Dev profile**: `.env`'s `ZOTERO_PLUGIN_PROFILE_PATH` must point at a **dedicated dev profile**, never your real one (`npm run start` restarts Zotero using it). Create one via `/Applications/Zotero.app/Contents/MacOS/zotero -P`.
 
+## Releasing
+
+Bump `version` in `package.json`, commit, then push an annotated `vX.Y.Z` tag (`git tag -a vX.Y.Z -m ... && git push origin main vX.Y.Z`). `.github/workflows/release.yml` then runs `zotero-plugin release` in CI, which:
+
+1. creates the `vX.Y.Z` GitHub Release and uploads the `.xpi`, then
+2. uploads `update.json`/`update-beta.json` to the `release` pre-release ("Release Manifest"), replacing the old ones. That file is what every installed copy's `update_url` polls, so **never delete the `release` tag/release**.
+
+**Don't `gh release create vX.Y.Z` by hand**: step 1 calls the create-release API and fails if the release already exists, so the workflow would stop before refreshing `update.json`. Edit the release title/notes afterwards with `gh release edit` if needed. If you ever do have to publish a release manually, also replace `update.json` on the `release` release yourself. Its `update_hash` must be the sha512 of the **published** `.xpi`, not of a local rebuild: the build embeds `buildTime`, so rebuilding changes the hash. v0.2.1's manifest was published by hand this way.
+
+CI (`ci.yml`: lint, build, unit and integration tests) runs on pushes and PRs to `main`, and can also be started by hand (`gh workflow run CI`).
+
 ## Architecture
 
 ```
@@ -76,4 +87,5 @@ test/startup.test.ts              - Zotero-integration test
 - The HTTP request/retry control flow in `crossref.ts`/`semanticScholar.ts` isn't unit-tested (would need mocking `Zotero.HTTP.request`) — only the pure helpers (URL builders, status classification, text normalization) are.
 - `zotero-plugin-scaffold` is slightly behind latest (0.8.2 installed vs 0.9.2 available as of last check) — Dependabot's weekly grouped PRs should pick this up; not urgent.
 - No CHANGELOG.md; release notes currently live only on GitHub Releases.
+- From repo creation (2026-09-21) until 2026-09-28, no event-triggered workflow ever ran: pushes, tag pushes, Dependabot PRs and the Issue Bot cron. Every CI and Issue Bot `run_number` started at 1 on 2026-09-28, so no runs had been deleted. The workflow files were valid and unchanged, the same `ci.yml` passed once it ran, and the `gh` token had the `repo` and `workflow` scopes. Triggers started working right after the first manual `workflow_dispatch` (Issue Bot). If CI/Release silently stop again, try `gh workflow run CI` first. Also check whether the Issue Bot cron (01:30 UTC daily) has been producing `schedule` runs.
 - GitHub Dependabot has ~36 open alerts, all in devDependencies (build tooling transitively pulled in by `zotero-plugin-scaffold`/eslint/mocha), none reachable in the shipped `.xpi` - reviewed, no action needed, left as-is.
