@@ -5,17 +5,8 @@ on:
     tags:
       - v**
 
-permissions:
-  contents: write
-  issues: write
-  pull-requests: write
-
 jobs:
-  create-release:
-    uses: zotero-plugin-dev/workflows/.github/workflows/release-plugin.yml@main
-    # You can customize any of the inputs here.
-    # If you omit an input, its default value will be used.
-    with:
-      build: "npm run build"
-      release: "npm run release"
-    secrets: inherit
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "tag push triggered Release for $GITHUB_REF"
