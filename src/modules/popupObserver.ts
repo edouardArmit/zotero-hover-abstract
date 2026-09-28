@@ -22,7 +22,13 @@ import { getPref } from "../utils/prefs";
 const CITATION_POPUP_CLASS = "citation-popup";
 const REFERENCE_TEXT_SELECTOR = ".reference-row";
 
-const attachedReaders = new Map<string, MutationObserver>();
+// Keyed by reader._instanceID. The tab ID is kept so the observer can be
+// dropped when its tab closes (see detachTabs) - otherwise the map keeps
+// observers of dead windows, which throw when touched at shutdown.
+const attachedReaders = new Map<
+  string,
+  { observer: MutationObserver; tabID?: string }
+>();
 
 export function attachToReader(reader: _ZoteroTypes.ReaderInstance): void {
   if (attachedReaders.has(reader._instanceID)) return;
@@ -67,7 +73,7 @@ export function attachToReader(reader: _ZoteroTypes.ReaderInstance): void {
   });
 
   observer.observe(doc.body, { childList: true, subtree: true });
-  attachedReaders.set(reader._instanceID, observer);
+  attachedReaders.set(reader._instanceID, { observer, tabID: reader.tabID });
 }
 
 async function resolveAndInject(
@@ -149,9 +155,27 @@ async function lookUpExternally(
   };
 }
 
+export function detachTabs(tabIDs: string[]): void {
+  for (const [instanceID, { observer, tabID }] of attachedReaders) {
+    if (tabID && tabIDs.includes(tabID)) {
+      safeDisconnect(observer);
+      attachedReaders.delete(instanceID);
+    }
+  }
+}
+
 export function detachAll(): void {
-  for (const observer of attachedReaders.values()) {
-    observer.disconnect();
+  for (const { observer } of attachedReaders.values()) {
+    safeDisconnect(observer);
   }
   attachedReaders.clear();
+}
+
+function safeDisconnect(observer: MutationObserver): void {
+  try {
+    observer.disconnect();
+  } catch {
+    // Its window is already gone ("can't access dead object") - there's
+    // nothing left to disconnect.
+  }
 }

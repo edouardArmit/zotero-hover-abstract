@@ -1,9 +1,14 @@
 import { getString, initLocale } from "./utils/locale";
 import { registerPrefsScripts } from "./modules/preferenceScript";
 import { clearAbstractCache } from "./modules/abstractCache";
-import { attachToReader, detachAll } from "./modules/popupObserver";
+import { attachToReader, detachAll, detachTabs } from "./modules/popupObserver";
 import { observePref } from "./utils/prefs";
 import { createZToolkit } from "./utils/ztoolkit";
+
+// When this copy of the code was loaded - logged at startup, so a reload
+// that failed to replace the running instance (see onShutdown) shows up
+// as an old timestamp.
+const CODE_LOADED_AT = new Date().toLocaleTimeString();
 
 let notifierID: string | undefined;
 let prefPaneID: string | undefined;
@@ -17,6 +22,9 @@ async function onStartup() {
   ]);
 
   initLocale();
+  ztoolkit.log(
+    `[${addon.data.config.addonRef}] starting (code loaded at ${CODE_LOADED_AT})`,
+  );
 
   // Without this, the preferences.xhtml pane exists and loads fine on its
   // own (verified via chrome://.../preferences.xhtml directly), but Zotero
@@ -89,7 +97,17 @@ async function onNotify(
   ids: Array<string | number>,
   extraData: { [key: string]: any },
 ) {
-  if (type !== "tab" || (event !== "add" && event !== "select")) return;
+  if (type !== "tab") return;
+  if (event === "close") {
+    // Zotero passes closed tab IDs nested: ids = [[id, ...]].
+    detachTabs(ids.flat().map(String));
+    return;
+  }
+  // "load" matters for tabs restored at startup: they're added as
+  // "reader-unloaded" and only become "reader" when the PDF actually loads,
+  // after this plugin's own startup - so neither "add" nor
+  // attachToAlreadyOpenReaders() ever sees them as readers.
+  if (event !== "add" && event !== "select" && event !== "load") return;
   const tabID = String(ids[0]);
   if (extraData?.[tabID]?.type !== "reader") return;
 
@@ -105,7 +123,8 @@ async function onMainWindowLoad(win: _ZoteroTypes.MainWindow): Promise<void> {
 
   new ztoolkit.ProgressWindow(addon.data.config.addonName, {
     closeOnClick: true,
-    closeTime: 3000,
+    // Longer in development builds, where it confirms a (re)load happened.
+    closeTime: addon.data.env === "development" ? 10000 : 3000,
   })
     .createLine({
       text: getString("startup-finish"),
@@ -120,18 +139,27 @@ async function onMainWindowUnload(win: Window): Promise<void> {
 }
 
 function onShutdown(): void {
-  detachAll();
-  if (notifierID) {
-    Zotero.Notifier.unregisterObserver(notifierID);
+  // Every step is guarded so a failing one can't skip the rest - above all
+  // the final `delete`. If the instance survived, the next startup (a plugin
+  // update, disable/re-enable, or a dev hot reload) would find it still set,
+  // skip creating a new one (see index.ts), and keep running this old code.
+  const steps: Array<() => void> = [
+    detachAll,
+    () => notifierID && Zotero.Notifier.unregisterObserver(notifierID),
+    () => prefObserverIDs.forEach((id) => Zotero.Prefs.unregisterObserver(id)),
+    () => prefPaneID && Zotero.PreferencePanes.unregister(prefPaneID),
+    () => ztoolkit.unregisterAll(),
+  ];
+  for (const step of steps) {
+    try {
+      step();
+    } catch (e) {
+      Zotero.logError(e as Error);
+    }
   }
-  prefObserverIDs.forEach((id) => Zotero.Prefs.unregisterObserver(id));
+  notifierID = undefined;
   prefObserverIDs = [];
-  if (prefPaneID) {
-    Zotero.PreferencePanes.unregister(prefPaneID);
-    prefPaneID = undefined;
-  }
-  ztoolkit.unregisterAll();
-  // Remove addon object
+  prefPaneID = undefined;
   addon.data.alive = false;
   // @ts-expect-error - Plugin instance is not typed
   delete Zotero[addon.data.config.addonInstance];
