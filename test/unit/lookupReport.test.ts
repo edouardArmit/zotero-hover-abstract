@@ -1,5 +1,6 @@
 import { assert } from "chai";
 import {
+  combineLibraryStatuses,
   formatAge,
   formatHttpError,
   formatReport,
@@ -43,6 +44,14 @@ describe("lookupReport", function () {
       });
     });
 
+    it("names the group library an abstract came from", function () {
+      const result = format({
+        library: { kind: "found", abstract: "Group.", groupName: "Lab" },
+        external: "disabled",
+      });
+      assert.equal(result.heading, 'Abstract (from group library "Lab")');
+    });
+
     it("labels an abstract from Crossref", function () {
       const result = format({
         library: notInLibrary,
@@ -71,7 +80,7 @@ describe("lookupReport", function () {
       assert.deepEqual(result, {
         heading: "No abstract found",
         details: [
-          "Library: not in your library",
+          "Library: not in your library or group libraries",
           "Online search: off (turn it on in Settings > My Plugin)",
         ],
       });
@@ -85,6 +94,17 @@ describe("lookupReport", function () {
       assert.equal(
         result.details[0],
         "Library: in your library, but its abstract field is empty",
+      );
+    });
+
+    it("names the group library holding a copy with an empty abstract", function () {
+      const result = format({
+        library: { kind: "noAbstract", groupName: "Lab" },
+        external: "disabled",
+      });
+      assert.equal(
+        result.details[0],
+        'Library: in group library "Lab", but its abstract field is empty',
       );
     });
 
@@ -102,7 +122,7 @@ describe("lookupReport", function () {
         external: { crossref: NO_ABSTRACT, semanticScholar: NO_MATCH },
       });
       assert.deepEqual(result.details, [
-        "Library: not in your library",
+        "Library: not in your library or group libraries",
         "Crossref: record found, but no abstract available",
         "Semantic Scholar: no matching record",
       ]);
@@ -194,6 +214,47 @@ describe("lookupReport", function () {
         format(fresh, { showCacheAge: true }).heading,
         "Abstract (from Crossref)",
       );
+    });
+  });
+
+  describe("combineLibraryStatuses", function () {
+    const found = (groupName?: string) =>
+      ({ kind: "found", abstract: "A.", groupName }) as const;
+    const empty = (groupName?: string) =>
+      ({ kind: "noAbstract", groupName }) as const;
+    const failed = { kind: "error", message: "boom" } as const;
+
+    it("takes the first copy with an abstract, even after an empty one", function () {
+      assert.deepEqual(
+        combineLibraryStatuses([empty(), notInLibrary, found("Lab")]),
+        found("Lab"),
+      );
+    });
+
+    it("prefers My Library's copy when both have an abstract", function () {
+      assert.deepEqual(
+        combineLibraryStatuses([found(), found("Lab")]),
+        found(),
+      );
+    });
+
+    it("reports an empty-abstract copy over an error or no match", function () {
+      assert.deepEqual(
+        combineLibraryStatuses([failed, notInLibrary, empty("Lab")]),
+        empty("Lab"),
+      );
+    });
+
+    it("reports an error rather than 'not found' if a library couldn't be searched", function () {
+      assert.deepEqual(combineLibraryStatuses([notInLibrary, failed]), failed);
+    });
+
+    it("is not found when no library has it, or there are none", function () {
+      assert.deepEqual(
+        combineLibraryStatuses([notInLibrary, notInLibrary]),
+        notInLibrary,
+      );
+      assert.deepEqual(combineLibraryStatuses([]), notInLibrary);
     });
   });
 

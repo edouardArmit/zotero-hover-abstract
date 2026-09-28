@@ -49,11 +49,11 @@ src/index.ts                      - bootstrap entry, lifecycle wiring
 src/hooks.ts                      - lifecycle dispatch; registers the preferences pane; reader-tab notifier registration
 src/modules/popupObserver.ts      - detects the native citation popup, reads reference text per row, orchestrates resolution (local -> cache -> Crossref -> Semantic Scholar) into a LookupReport
 src/modules/referenceParser.ts    - pure: parses a reference string into {authors, year, title, doi}
-src/modules/libraryResolver.ts    - local lookup (DOI, then title/creator search) -> LibraryStatus: found / notInLibrary / noAbstract / error
+src/modules/libraryResolver.ts    - local lookup in My Library, then each group library (DOI, then title/creator search) -> LibraryStatus: found / notInLibrary / noAbstract / error
 src/modules/crossref.ts           - Crossref fallback lookup (DOI, then bibliographic search on title or whole reference text)
 src/modules/semanticScholar.ts    - Semantic Scholar fallback lookup, shared ~1.1s request spacing, retry/backoff on 429/5xx, optional API key
 src/modules/lookupResult.ts       - pure: LookupResult (found / missing+detail / error+HttpFailure), classifyFailure, combineResults, extractFailureDetails
-src/modules/lookupReport.ts       - pure: LookupReport -> popup heading + per-source status lines (formatReport)
+src/modules/lookupReport.ts       - pure: LookupReport -> popup heading + per-source status lines (formatReport); combineLibraryStatuses
 src/modules/textUtils.ts          - pure: stripXmlTags (JATS-XML), normalizeText
 src/modules/abstractCache.ts      - in-memory cache of external results keyed by DOI or raw text; hits 24h, misses 1h, errors never; cleared on pref change
 src/modules/popupInjector.ts      - appends the formatted report into a specific .reference-row
@@ -70,6 +70,7 @@ test/startup.test.ts              - Zotero-integration test
 - **The popup lives in `reader._iframeWindow.document`** (the outer reader wrapper), not the inner PDF content iframe (`_internalReader._primaryView._iframeWindow`, which only has PDF.js's own highlight overlays) and not the XUL popupset. Class `citation-popup`; a grouped citation renders **multiple** `.reference-row` elements in one popup — `querySelectorAll`, not `querySelector`, or you silently drop everything but the first.
 - **No global `MutationObserver` (or other DOM APIs) in the bootstrap scope.** This bundle runs in a privileged sandbox, not a web page. Get `MutationObserver` off the target window (`reader._iframeWindow.MutationObserver`), not as a bare global.
 - **Preferences pane needs explicit registration.** `Zotero.PreferencePanes.register({ pluginID, src, label })` in `onStartup` — without it, `preferences.xhtml` serves fine over `chrome://` but Zotero never surfaces a way to open it. The pane then lives in **Zotero's own Settings window** (app menu → Settings), _not_ Tools → Plugins (that's Firefox's generic Add-ons Manager and has no knowledge of it).
+- **Item fields are lazy-loaded per library.** An item from a library the user hasn't browsed this session (typically a group) throws "Item data not loaded and field ... not set" on `getField()` - call `await item.loadDataType("itemData")` first (see `libraryResolver.ts`).
 - **`Zotero.HTTP.request` has its own built-in retry-on-error.** Pass `errorDelayMax: 0` when implementing custom retry logic, or the two stack and multiply actual requests sent.
 - **`Zotero.Promise.delay()`** works for sleep/delay (used for backoff) despite `zotero-types` not declaring it — needs an `as any` cast, documented inline where used.
 - **Crossref abstract coverage is genuinely inconsistent** (many ACM papers have none - confirmed, not a bug). **Semantic Scholar has better CS coverage but a much stricter unauthenticated rate limit** — a free per-user API key (entered in the plugin's own preferences, never baked into the build) fixes this; see the "why per-user not a shared embedded key" note in the preferences field/README.
@@ -80,9 +81,8 @@ test/startup.test.ts              - Zotero-integration test
 
 ## Known open items / possible next steps
 
-- **Next:** search group libraries too (only "My Library" / `userLibraryID` is searched today) - v0.3.0.
 - Make "online search is off" / the API-key error in the popup a clickable link to the plugin's Settings pane.
-- The duplicate-Settings-tab fix (idempotent pane registration in `hooks.ts`) hasn't been verified by its real trigger: installing a new `.xpi` over an already-installed older version.
+- Local title search is an exact "contains" match, so PDF text-extraction artefacts miss real library items (e.g. reference text "21stcentury" vs library title "21st-Century"). Needs a normalized/fuzzy title comparison.
 
 - The HTTP request/retry control flow in `crossref.ts`/`semanticScholar.ts` isn't unit-tested (would need mocking `Zotero.HTTP.request`) — only the pure helpers (URL builders, status classification, text normalization) are.
 - `zotero-plugin-scaffold` is slightly behind latest (0.8.2 installed vs 0.9.2 available as of last check) — Dependabot's weekly grouped PRs should pick this up; not urgent.

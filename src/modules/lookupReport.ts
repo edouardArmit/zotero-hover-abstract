@@ -7,11 +7,32 @@ import type { HttpFailure, LookupResult, MissingDetail } from "./lookupResult";
 // back - not in the library, online search off, publisher shares no
 // abstract, API key rejected, rate limited, offline...
 
+/**
+ * Result of searching the local libraries. `groupName` is set when the item
+ * was found in a group library rather than the user's own "My Library".
+ */
 export type LibraryStatus =
-  | { kind: "found"; abstract: string }
+  | { kind: "found"; abstract: string; groupName?: string }
   | { kind: "notInLibrary" }
-  | { kind: "noAbstract" }
+  | { kind: "noAbstract"; groupName?: string }
   | { kind: "error"; message: string };
+
+/**
+ * Merge per-library results, given in search order (My Library first, then
+ * groups). The first copy that has an abstract wins, so a group's copy can
+ * supply the abstract that My Library's copy is missing; otherwise the first
+ * matching copy (without an abstract); otherwise the first error (a library
+ * that couldn't be searched might have held it); otherwise not found.
+ */
+export function combineLibraryStatuses(
+  statuses: LibraryStatus[],
+): LibraryStatus {
+  return (
+    statuses.find((s) => s.kind === "found") ??
+    statuses.find((s) => s.kind === "noAbstract") ??
+    statuses.find((s) => s.kind === "error") ?? { kind: "notInLibrary" }
+  );
+}
 
 /** Semantic Scholar is absent when it wasn't needed (Crossref found it). */
 export interface ExternalResults {
@@ -81,7 +102,10 @@ function findAbstract(
   report: LookupReport,
 ): { source: string; abstract: string } | undefined {
   if (report.library.kind === "found") {
-    return { source: "your library", abstract: report.library.abstract };
+    return {
+      source: libraryName(report.library.groupName),
+      abstract: report.library.abstract,
+    };
   }
   if (report.external === "disabled") return undefined;
   const { crossref, semanticScholar } = report.external;
@@ -94,14 +118,18 @@ function findAbstract(
   return undefined;
 }
 
+function libraryName(groupName: string | undefined): string {
+  return groupName ? `group library "${groupName}"` : "your library";
+}
+
 function describeLibrary(status: LibraryStatus): string {
   switch (status.kind) {
     case "found":
       return "abstract found";
     case "notInLibrary":
-      return "not in your library";
+      return "not in your library or group libraries";
     case "noAbstract":
-      return "in your library, but its abstract field is empty";
+      return `in ${libraryName(status.groupName)}, but its abstract field is empty`;
     case "error":
       return `search failed (${truncate(status.message)})`;
   }

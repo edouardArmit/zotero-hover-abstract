@@ -11,7 +11,7 @@ Built in stages, each verified in a real Zotero install before the next started:
 - **Stage 0** — bare plugin scaffold: loads in Zotero, no feature logic yet.
 - **Stage 1** — detect Zotero's native citation popup (`.citation-popup` in `reader._iframeWindow.document`) via `MutationObserver` and read its resolved reference text.
 - **Stage 2** — parse the popup's reference text into `{authors, year, title, doi}` (`src/modules/referenceParser.ts`), best-effort.
-- **Stage 3** — resolve to a local Zotero item via DOI or title/creator search (`src/modules/libraryResolver.ts`).
+- **Stage 3** — resolve to a local Zotero item via DOI or title/creator search (`src/modules/libraryResolver.ts`) — in My Library first, then each group library; the first copy with an abstract wins, and the popup names the group it came from.
 - **Stage 3b** — inject the found abstract into the visible popup itself (`src/modules/popupInjector.ts`).
 - **Stage 4** — optional fallback to Crossref, then Semantic Scholar, when there's no local abstract, with an in-memory cache. Off by default (see preferences below).
 - **Stage 4b** — handled Semantic Scholar rate limits (exponential backoff, optional API key support).
@@ -19,7 +19,7 @@ Built in stages, each verified in a real Zotero install before the next started:
 - **Stage 6** — the popup explains itself: the heading names where an abstract came from ("Abstract (from Crossref)"), and when none is found it shows one status line per source checked — e.g. "Library: not in your library", "Online search: off", "Crossref: record found, but no abstract available", "Semantic Scholar: authentication error, 403 Forbidden", rate limits (429), server errors, network issues. Parses IEEE-style references (quoted titles) as well as ACM/APA-style ones.
 - Handles grouped in-text citations (e.g. "[27, 33]") — each reference in the group is resolved and shown independently.
 
-Known limitations (by design, not bugs): this only works for proper text-layer PDFs (no OCR/scanned-PDF support); it depends on Zotero's own citation-popup DOM structure, which is not a documented/stable plugin API — a future Zotero release could silently break it; Crossref's abstract coverage is genuinely inconsistent (many publishers, notably ACM, don't deposit abstracts at all); only your personal "My Library" is searched locally, not group libraries (planned); and Semantic Scholar's unauthenticated tier has a rate limit that can be hit often depending on your network — entering a free API key in the plugin's preferences (Zotero app menu → Settings → Zotero Hover Abstract) fixes this and is recommended if you enable external lookups. Each user should get their own key rather than one being baked into the plugin — see the note in that preferences field.
+Known limitations (by design, not bugs): this only works for proper text-layer PDFs (no OCR/scanned-PDF support); it depends on Zotero's own citation-popup DOM structure, which is not a documented/stable plugin API — a future Zotero release could silently break it; Crossref's abstract coverage is genuinely inconsistent (many publishers, notably ACM, don't deposit abstracts at all); and Semantic Scholar's unauthenticated tier has a rate limit that can be hit often depending on your network — entering a free API key in the plugin's preferences (Zotero app menu → Settings → Zotero Hover Abstract) fixes this and is recommended if you enable external lookups. Each user should get their own key rather than one being baked into the plugin — see the note in that preferences field.
 
 ## Attribution
 
@@ -61,7 +61,7 @@ src/index.ts                     - bootstrap entry, lifecycle wiring
 src/hooks.ts                     - lifecycle dispatch, preferences pane registration, reader-tab notifier registration
 src/modules/popupObserver.ts     - detects Zotero's native citation popup, reads reference text per row, orchestrates resolution
 src/modules/referenceParser.ts   - best-effort parse of the reference text into {authors, year, title, doi}
-src/modules/libraryResolver.ts   - looks a parsed reference up in the local library: found / not in library / empty abstract
+src/modules/libraryResolver.ts   - looks a parsed reference up in My Library, then each group library: found / not found / empty abstract
 src/modules/crossref.ts          - Crossref fallback lookup (DOI, then bibliographic search, or the whole reference text)
 src/modules/semanticScholar.ts   - Semantic Scholar fallback lookup, tried after Crossref: spaced ~1 req/s, retry/backoff on 429/5xx
 src/modules/lookupResult.ts      - pure: per-source result type (found / missing+why / error+HTTP details), classification, merging
