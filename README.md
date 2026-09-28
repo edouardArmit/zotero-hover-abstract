@@ -16,9 +16,10 @@ Built in stages, each verified in a real Zotero install before the next started:
 - **Stage 4** — optional fallback to Crossref, then Semantic Scholar, when there's no local abstract, with an in-memory cache. Off by default (see preferences below).
 - **Stage 4b** — handled Semantic Scholar rate limits (exponential backoff, optional API key support).
 - **Stage 5** — preferences pane: "Enable" (master on/off), "Also check Crossref and Semantic Scholar..." (external lookups, off by default), and a Semantic Scholar API key field, all backed by `Zotero.Prefs` (read fresh on every request, no rebuild needed to change them).
+- **Stage 6** — the popup explains itself: the heading names where an abstract came from ("Abstract (from Crossref)"), and when none is found it shows one status line per source checked — e.g. "Library: not in your library", "Online search: off", "Crossref: record found, but no abstract available", "Semantic Scholar: authentication error, 403 Forbidden", rate limits (429), server errors, network issues. Parses IEEE-style references (quoted titles) as well as ACM/APA-style ones.
 - Handles grouped in-text citations (e.g. "[27, 33]") — each reference in the group is resolved and shown independently.
 
-Known limitations (by design, not bugs): this only works for proper text-layer PDFs (no OCR/scanned-PDF support); it depends on Zotero's own citation-popup DOM structure, which is not a documented/stable plugin API — a future Zotero release could silently break it; Crossref's abstract coverage is genuinely inconsistent (many publishers, notably ACM, don't deposit abstracts at all); and Semantic Scholar's unauthenticated tier has a rate limit that can be hit often depending on your network — entering a free API key in the plugin's preferences (Zotero app menu → Settings → Zotero Hover Abstract) fixes this and is recommended if you enable external lookups. Each user should get their own key rather than one being baked into the plugin — see the note in that preferences field.
+Known limitations (by design, not bugs): this only works for proper text-layer PDFs (no OCR/scanned-PDF support); it depends on Zotero's own citation-popup DOM structure, which is not a documented/stable plugin API — a future Zotero release could silently break it; Crossref's abstract coverage is genuinely inconsistent (many publishers, notably ACM, don't deposit abstracts at all); only your personal "My Library" is searched locally, not group libraries (planned); and Semantic Scholar's unauthenticated tier has a rate limit that can be hit often depending on your network — entering a free API key in the plugin's preferences (Zotero app menu → Settings → Zotero Hover Abstract) fixes this and is recommended if you enable external lookups. Each user should get their own key rather than one being baked into the plugin — see the note in that preferences field.
 
 ## Attribution
 
@@ -45,7 +46,7 @@ When external lookups are used, this plugin queries the [Semantic Scholar API](h
 
 ## Testing
 
-- `npm run test:unit` — fast, offline unit tests (mocha + chai, via `tsx` as the TS/ESM loader) for the pure-logic modules that don't touch the `Zotero` API: `referenceParser.ts` and `abstractCache.ts` (`test/unit/`). No Zotero instance needed; these run in plain Node and are wired into CI.
+- `npm run test:unit` — fast, offline unit tests (mocha + chai, via `tsx` as the TS/ESM loader) for the pure-logic modules and helpers that don't touch the `Zotero` API: reference parsing, lookup-result classification and merging, popup message formatting, the cache (expiry, eviction), Crossref/Semantic Scholar URL builders and the Semantic Scholar request spacing (`test/unit/`). No Zotero instance needed; these run in plain Node and are wired into CI.
 - `npm run test` — integration tests (`zotero-plugin test`, `test/startup.test.ts`) that launch a real headless Zotero instance to verify the plugin actually loads. Slower, and the only option for anything that touches `Zotero.*` APIs (reader detection, library search, HTTP calls) - those aren't currently unit-testable without mocking Zotero's globals, which none of this project's tests do yet.
 
 ## Project structure
@@ -60,11 +61,13 @@ src/index.ts                     - bootstrap entry, lifecycle wiring
 src/hooks.ts                     - lifecycle dispatch, preferences pane registration, reader-tab notifier registration
 src/modules/popupObserver.ts     - detects Zotero's native citation popup, reads reference text per row, orchestrates resolution
 src/modules/referenceParser.ts   - best-effort parse of the reference text into {authors, year, title, doi}
-src/modules/libraryResolver.ts   - resolves a parsed reference to a local item's abstractNote (DOI or title/creator search)
-src/modules/crossref.ts          - Crossref fallback lookup (DOI, then bibliographic search)
-src/modules/semanticScholar.ts   - Semantic Scholar fallback lookup, tried after Crossref, with retry/backoff
-src/modules/abstractCache.ts     - in-memory cache of resolved (and confirmed-missing) abstracts per session
-src/modules/popupInjector.ts     - appends the found abstract (or a "not found" note) into a specific reference row
+src/modules/libraryResolver.ts   - looks a parsed reference up in the local library: found / not in library / empty abstract
+src/modules/crossref.ts          - Crossref fallback lookup (DOI, then bibliographic search, or the whole reference text)
+src/modules/semanticScholar.ts   - Semantic Scholar fallback lookup, tried after Crossref: spaced ~1 req/s, retry/backoff on 429/5xx
+src/modules/lookupResult.ts      - pure: per-source result type (found / missing+why / error+HTTP details), classification, merging
+src/modules/lookupReport.ts      - pure: formats a hover's per-source results into the popup heading + status lines
+src/modules/abstractCache.ts     - in-memory cache of external results (hits 24 h, misses 1 h, errors never; cleared on pref change)
+src/modules/popupInjector.ts     - appends the heading and the abstract (or status lines) into a specific reference row
 src/modules/preferenceScript.ts  - preferences pane logic
 src/utils/prefs.ts               - typed Zotero.Prefs get/set/clear wrappers
 src/utils/                       - locale, ztoolkit, window helpers

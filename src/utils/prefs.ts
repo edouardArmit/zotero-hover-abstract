@@ -34,3 +34,15 @@ export function setPref<K extends keyof PluginPrefsMap>(
 export function clearPref(key: string) {
   return Zotero.Prefs.clear(`${PREFS_PREFIX}.${key}`, true);
 }
+
+/**
+ * Call `handler` whenever the preference changes.
+ * Wrapper of `Zotero.Prefs.registerObserver`; returns the symbol to pass to
+ * `Zotero.Prefs.unregisterObserver`.
+ */
+export function observePref(
+  key: keyof PluginPrefsMap,
+  handler: () => void,
+): symbol {
+  return Zotero.Prefs.registerObserver(`${PREFS_PREFIX}.${key}`, handler, true);
+}

@@ -6,7 +6,7 @@ Guidance for Claude Code when working in this repo. Also read the global `swe-wo
 
 A Zotero (7+/10) plugin. Zotero's built-in PDF reader has a native hover popup that shows the resolved reference (authors/title/etc.) for an in-text citation — this plugin observes that popup and injects the cited work's abstract into it. By default it only checks the user's local Zotero library (no network calls). An opt-in preference ("Also check Crossref and Semantic Scholar...", off by default) extends resolution to Crossref, then Semantic Scholar, for citations not in the library.
 
-Repo: https://github.com/edouardArmit/zotero-hover-abstract (public). Single `main` branch, trunk-based (see `swe-workflow`). Current release: **v0.2.0**.
+Repo: https://github.com/edouardArmit/zotero-hover-abstract (public). Single `main` branch, trunk-based (see `swe-workflow`). Current release: **v0.2.1**.
 
 Scaffolded from `windingwind/zotero-plugin-template` (TypeScript, esbuild via `zotero-plugin-scaffold`, `zotero-plugin-toolkit`), then heavily stripped down — the template's demo/example code (extra columns, context menus, dialogs) was all removed; nothing in `src/` is template boilerplate anymore.
 
@@ -36,20 +36,22 @@ addon/prefs.js                    - preference defaults
 addon/locale/en-US/*.ftl          - Fluent strings
 src/index.ts                      - bootstrap entry, lifecycle wiring
 src/hooks.ts                      - lifecycle dispatch; registers the preferences pane; reader-tab notifier registration
-src/modules/popupObserver.ts      - detects the native citation popup, reads reference text per row, orchestrates resolution (cache -> local -> Crossref -> Semantic Scholar)
+src/modules/popupObserver.ts      - detects the native citation popup, reads reference text per row, orchestrates resolution (local -> cache -> Crossref -> Semantic Scholar) into a LookupReport
 src/modules/referenceParser.ts    - pure: parses a reference string into {authors, year, title, doi}
-src/modules/libraryResolver.ts    - resolves a parsed reference to a local Zotero item's abstractNote (DOI, then title/creator search)
-src/modules/crossref.ts           - Crossref fallback lookup (DOI, then bibliographic search)
-src/modules/semanticScholar.ts    - Semantic Scholar fallback lookup, retry/backoff on 429/5xx, optional API key
+src/modules/libraryResolver.ts    - local lookup (DOI, then title/creator search) -> LibraryStatus: found / notInLibrary / noAbstract / error
+src/modules/crossref.ts           - Crossref fallback lookup (DOI, then bibliographic search on title or whole reference text)
+src/modules/semanticScholar.ts    - Semantic Scholar fallback lookup, shared ~1.1s request spacing, retry/backoff on 429/5xx, optional API key
+src/modules/lookupResult.ts       - pure: LookupResult (found / missing+detail / error+HttpFailure), classifyFailure, combineResults, extractFailureDetails
+src/modules/lookupReport.ts       - pure: LookupReport -> popup heading + per-source status lines (formatReport)
 src/modules/textUtils.ts          - pure: stripXmlTags (JATS-XML), normalizeText
-src/modules/abstractCache.ts      - in-memory cache of resolved (and confirmed-missing) abstracts, keyed by DOI or raw text
-src/modules/popupInjector.ts      - appends the abstract (or "not found") into a specific .reference-row
+src/modules/abstractCache.ts      - in-memory cache of external results keyed by DOI or raw text; hits 24h, misses 1h, errors never; cleared on pref change
+src/modules/popupInjector.ts      - appends the formatted report into a specific .reference-row
 src/utils/prefs.ts                - typed Zotero.Prefs get/set/clear wrappers
 test/unit/                        - offline unit tests for the pure modules above
 test/startup.test.ts              - Zotero-integration test
 ```
 
-`popupObserver.ts` is the orchestrator: for each `.reference-row` in a detected `.citation-popup`, it checks the cache, then `libraryResolver`, then (only if `enableExternalLookups` pref is on) `crossref` then `semanticScholar`, injecting the result via `popupInjector`.
+`popupObserver.ts` is the orchestrator: for each `.reference-row` in a detected `.citation-popup`, it checks `libraryResolver` (never cached), then (only if `enableExternalLookups` is on) the cache, then `crossref`, then `semanticScholar`. Each source's result goes into a `LookupReport`, which `lookupReport.formatReport` turns into the text `popupInjector` shows. Every hover logs a one-line summary (`lookup report for "...": library=... crossref=... semanticScholar=...`) — the fastest way to diagnose a user report.
 
 ## Key gotchas discovered building this (don't rediscover these)
 
@@ -61,7 +63,15 @@ test/startup.test.ts              - Zotero-integration test
 - **`Zotero.Promise.delay()`** works for sleep/delay (used for backoff) despite `zotero-types` not declaring it — needs an `as any` cast, documented inline where used.
 - **Crossref abstract coverage is genuinely inconsistent** (many ACM papers have none - confirmed, not a bug). **Semantic Scholar has better CS coverage but a much stricter unauthenticated rate limit** — a free per-user API key (entered in the plugin's own preferences, never baked into the build) fixes this; see the "why per-user not a shared embedded key" note in the preferences field/README.
 
+- **HTTP/2 responses have an empty `statusText`** (Semantic Scholar's 403 arrives like this) - `lookupReport.ts` fills in standard reason phrases for common codes.
+- **A Semantic Scholar API key's default limit is 1 request/second**, across all endpoints - hence the shared request spacing in `semanticScholar.ts`. A 403 means the key itself is rejected (e.g. truncated when pasted - real keys have a short prefix before a dash), not a rate limit.
+- **The dev profile's data directory is currently `~/Zotero` - the real library**, since `.env`'s `ZOTERO_PLUGIN_DATA_DIR` is empty. The plugin only reads the library so this is safe today, but a separate data dir would be cleaner.
+
 ## Known open items / possible next steps
+
+- **Next:** search group libraries too (only "My Library" / `userLibraryID` is searched today) - v0.3.0.
+- Make "online search is off" / the API-key error in the popup a clickable link to the plugin's Settings pane.
+- The duplicate-Settings-tab fix (idempotent pane registration in `hooks.ts`) hasn't been verified by its real trigger: installing a new `.xpi` over an already-installed older version.
 
 - The HTTP request/retry control flow in `crossref.ts`/`semanticScholar.ts` isn't unit-tested (would need mocking `Zotero.HTTP.request`) — only the pure helpers (URL builders, status classification, text normalization) are.
 - `zotero-plugin-scaffold` is slightly behind latest (0.8.2 installed vs 0.9.2 available as of last check) — Dependabot's weekly grouped PRs should pick this up; not urgent.

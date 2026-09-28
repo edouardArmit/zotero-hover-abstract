@@ -1,9 +1,13 @@
 import { getString, initLocale } from "./utils/locale";
 import { registerPrefsScripts } from "./modules/preferenceScript";
+import { clearAbstractCache } from "./modules/abstractCache";
 import { attachToReader, detachAll } from "./modules/popupObserver";
+import { observePref } from "./utils/prefs";
 import { createZToolkit } from "./utils/ztoolkit";
 
 let notifierID: string | undefined;
+let prefPaneID: string | undefined;
+let prefObserverIDs: symbol[] = [];
 
 async function onStartup() {
   await Promise.all([
@@ -18,13 +22,10 @@ async function onStartup() {
   // own (verified via chrome://.../preferences.xhtml directly), but Zotero
   // never surfaces a way to open it - no "Preferences" entry appears for
   // the plugin in Tools > Plugins at all.
-  await Zotero.PreferencePanes.register({
-    pluginID: addon.data.config.addonID,
-    src: rootURI + "content/preferences.xhtml",
-    label: addon.data.config.addonName,
-  });
+  await registerPrefPane();
 
   registerReaderNotifier();
+  registerPrefObservers();
   attachToAlreadyOpenReaders();
 
   await Promise.all(
@@ -34,6 +35,31 @@ async function onStartup() {
   // Mark initialized as true to confirm plugin loading status
   // outside of the plugin (e.g. scaffold testing process)
   addon.data.initialized = true;
+}
+
+async function registerPrefPane(): Promise<void> {
+  // Zotero is meant to drop a plugin's panes when it shuts down, but after
+  // installing a new .xpi over an existing one the Settings sidebar was seen
+  // showing this plugin's pane twice. Removing any pane still registered
+  // under our ID first makes registration idempotent whatever the cause.
+  for (const pane of Zotero.PreferencePanes.pluginPanes) {
+    if (pane.pluginID === addon.data.config.addonID && pane.id) {
+      Zotero.PreferencePanes.unregister(pane.id);
+    }
+  }
+  prefPaneID = await Zotero.PreferencePanes.register({
+    pluginID: addon.data.config.addonID,
+    src: rootURI + "content/preferences.xhtml",
+    label: addon.data.config.addonName,
+  });
+}
+
+// Cached external results depend on these prefs - e.g. a "not found" cached
+// while the API key was wrong must not outlive the user fixing the key.
+function registerPrefObservers(): void {
+  prefObserverIDs = (
+    ["enableExternalLookups", "semanticScholarApiKey"] as const
+  ).map((key) => observePref(key, clearAbstractCache));
 }
 
 function registerReaderNotifier(): void {
@@ -97,6 +123,12 @@ function onShutdown(): void {
   detachAll();
   if (notifierID) {
     Zotero.Notifier.unregisterObserver(notifierID);
+  }
+  prefObserverIDs.forEach((id) => Zotero.Prefs.unregisterObserver(id));
+  prefObserverIDs = [];
+  if (prefPaneID) {
+    Zotero.PreferencePanes.unregister(prefPaneID);
+    prefPaneID = undefined;
   }
   ztoolkit.unregisterAll();
   // Remove addon object

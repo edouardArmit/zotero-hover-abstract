@@ -7,47 +7,48 @@
 // as a whole (otherwise multiple abstracts injected at the popup level would
 // be ambiguous about which reference they belong to).
 
+import type { FormattedReport } from "./lookupReport";
+
 const INJECTED_MARKER = "data-hoverabstract-injected";
 
 const DIVIDER_STYLE =
   "margin-top: 6px; padding-top: 6px; border-top: 1px solid rgba(128,128,128,0.4); font-size: 0.9em; max-width: 32em;";
 
-export function injectAbstractIntoRow(
+/**
+ * Append a heading ("Abstract (from Crossref)" / "No abstract found") and
+ * then either the abstract text or one dimmed status line per source.
+ */
+export function injectReport(
   referenceRowEl: Element,
-  abstractText: string,
+  report: FormattedReport,
 ): void {
   const doc = referenceRowEl.ownerDocument;
   if (!doc) return;
 
-  const label = doc.createElement("div");
-  label.textContent = "Abstract";
-  label.setAttribute(
+  const heading = doc.createElement("div");
+  heading.textContent = report.heading;
+  heading.setAttribute(
     "style",
     "font-weight: 600; margin-bottom: 2px; opacity: 0.7;",
   );
 
-  const body = doc.createElement("div");
-  body.textContent = abstractText;
-
   const container = doc.createElement("div");
   container.setAttribute("style", DIVIDER_STYLE);
-  container.append(label, body);
+  container.append(heading);
+
+  if (report.abstract) {
+    const body = doc.createElement("div");
+    body.textContent = report.abstract;
+    container.append(body);
+  }
+  for (const detail of report.details) {
+    const line = doc.createElement("div");
+    line.textContent = detail;
+    line.setAttribute("style", "font-style: italic; opacity: 0.6;");
+    container.append(line);
+  }
 
   appendOnce(referenceRowEl, container);
-}
-
-export function injectNoAbstractFoundLabel(referenceRowEl: Element): void {
-  const doc = referenceRowEl.ownerDocument;
-  if (!doc) return;
-
-  const label = doc.createElement("div");
-  label.textContent = "No abstract found";
-  label.setAttribute(
-    "style",
-    `${DIVIDER_STYLE} font-style: italic; opacity: 0.6;`,
-  );
-
-  appendOnce(referenceRowEl, label);
 }
 
 function appendOnce(referenceRowEl: Element, node: Element): void {

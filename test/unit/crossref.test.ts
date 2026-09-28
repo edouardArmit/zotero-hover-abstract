@@ -2,6 +2,7 @@ import { assert } from "chai";
 import {
   buildBibliographicQueryUrl,
   buildDoiUrl,
+  stripLeadingMarker,
 } from "../../src/modules/crossref";
 
 describe("crossref", function () {
@@ -39,6 +40,19 @@ describe("crossref", function () {
       const queryParam = url.split("&rows=1")[0];
       assert.notInclude(queryParam, "&"); // a literal & here would split into an extra param
       assert.include(queryParam, "Fish%20%26%20Chips");
+    });
+  });
+
+  describe("stripLeadingMarker", function () {
+    it("removes a leading [N] marker and surrounding whitespace", function () {
+      assert.equal(
+        stripLeadingMarker("[12]  A. Author, 2020. "),
+        "A. Author, 2020.",
+      );
+    });
+
+    it("leaves text without a marker unchanged", function () {
+      assert.equal(stripLeadingMarker("A. Author, 2020."), "A. Author, 2020.");
     });
   });
 });

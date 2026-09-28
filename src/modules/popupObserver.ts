@@ -1,11 +1,14 @@
 import { config } from "../../package.json";
-import { getCachedAbstract, setCachedAbstract } from "./abstractCache";
+import { getCachedResults, setCachedResults } from "./abstractCache";
 import { fetchCrossrefAbstract } from "./crossref";
 import { resolveLocalAbstract } from "./libraryResolver";
 import {
-  injectAbstractIntoRow,
-  injectNoAbstractFoundLabel,
-} from "./popupInjector";
+  formatReport,
+  type ExternalResults,
+  type LookupReport,
+} from "./lookupReport";
+import { isError, type LookupResult } from "./lookupResult";
+import { injectReport } from "./popupInjector";
 import { parseReferenceText, type ParsedReference } from "./referenceParser";
 import { fetchSemanticScholarAbstract } from "./semanticScholar";
 import { getPref } from "../utils/prefs";
@@ -52,7 +55,12 @@ export function attachToReader(reader: _ZoteroTypes.ReaderInstance): void {
           const parsed = parseReferenceText(referenceText);
           ztoolkit.log(`[${config.addonRef}] parsed reference:`, parsed);
 
-          resolveAndInject(parsed, row);
+          // Fire-and-forget per row, so catch here: an unhandled rejection
+          // would otherwise vanish silently, leaving the popup unchanged
+          // with no trace of why.
+          resolveAndInject(parsed, row).catch((e) =>
+            ztoolkit.log(`[${config.addonRef}] lookup failed:`, e),
+          );
         }
       }
     }
@@ -66,67 +74,79 @@ async function resolveAndInject(
   parsed: ParsedReference,
   referenceRowEl: Element,
 ): Promise<void> {
-  if (!getPref("enable")) return;
-
-  const cached = getCachedAbstract(parsed);
-  if (cached !== undefined) {
-    if (cached) {
-      injectAbstractIntoRow(referenceRowEl, cached);
-    } else {
-      injectNoAbstractFoundLabel(referenceRowEl);
-    }
+  if (!getPref("enable")) {
+    ztoolkit.log(`[${config.addonRef}] plugin disabled in Settings, skipping`);
     return;
   }
 
-  const local = await resolveLocalAbstract(parsed).catch((e) => {
-    ztoolkit.log(`[${config.addonRef}] local search failed:`, e);
-    return undefined;
-  });
-  if (local) {
-    ztoolkit.log(`[${config.addonRef}] local abstract found:`, local);
-    setCachedAbstract(parsed, local.abstractNote);
-    injectAbstractIntoRow(referenceRowEl, local.abstractNote);
-    return;
-  }
+  const report = await buildReport(parsed);
   ztoolkit.log(
-    `[${config.addonRef}] no local abstract for:`,
-    parsed.title ?? parsed.raw,
+    `[${config.addonRef}] lookup report for "${parsed.title ?? parsed.raw}": ${summarizeReport(report)}`,
+    report,
   );
+  injectReport(
+    referenceRowEl,
+    formatReport(report, {
+      settingsName: config.addonName,
+      now: Date.now(),
+      showCacheAge: addon.data.env === "development",
+    }),
+  );
+}
 
+/** e.g. "library=notInLibrary crossref=missing:noAbstract semanticScholar=error:rateLimited(429)" */
+function summarizeReport(report: LookupReport): string {
+  const describe = (r: LookupResult | undefined) =>
+    !r
+      ? "not queried"
+      : r.kind === "missing"
+        ? `missing:${r.detail}`
+        : r.kind === "error"
+          ? `error:${r.failure.reason}(${r.failure.status ?? "no status"})`
+          : "found";
+  const external =
+    report.external === "disabled"
+      ? "external=off"
+      : `crossref=${describe(report.external.crossref)} semanticScholar=${describe(report.external.semanticScholar)}`;
+  const cached = report.cachedAt === undefined ? "" : " (cached)";
+  return `library=${report.library.kind} ${external}${cached}`;
+}
+
+async function buildReport(parsed: ParsedReference): Promise<LookupReport> {
+  // The local library is checked first and never cached: it's a fast local
+  // query, and not caching it means an abstract the user adds or edits in
+  // Zotero shows up on the very next hover.
+  const library = await resolveLocalAbstract(parsed);
+  // (A library hit never shows per-source lines, so "disabled" here just
+  // means "not consulted".)
+  if (library.kind === "found") return { library, external: "disabled" };
   if (!getPref("enableExternalLookups")) {
-    // Deliberately not cached: this "not found" is a consequence of the
-    // pref being off, not a confirmed miss. Caching it would leave stale
-    // results in place if the user later turns external lookups on and
-    // re-hovers the same citation within the same session.
-    injectNoAbstractFoundLabel(referenceRowEl);
-    return;
+    return { library, external: "disabled" };
   }
 
-  let remote = await fetchCrossrefAbstract(parsed).catch((e) => {
-    ztoolkit.log(`[${config.addonRef}] Crossref lookup failed:`, e);
-    return undefined;
-  });
-  let source = "Crossref";
-
-  if (!remote) {
-    remote = await fetchSemanticScholarAbstract(parsed).catch((e) => {
-      ztoolkit.log(`[${config.addonRef}] Semantic Scholar lookup failed:`, e);
-      return undefined;
-    });
-    source = "Semantic Scholar";
+  const cached = getCachedResults(parsed);
+  if (cached) {
+    return { library, external: cached.results, cachedAt: cached.storedAt };
   }
 
-  setCachedAbstract(parsed, remote ?? null);
-  if (remote) {
-    ztoolkit.log(`[${config.addonRef}] ${source} abstract found:`, remote);
-    injectAbstractIntoRow(referenceRowEl, remote);
-  } else {
-    ztoolkit.log(
-      `[${config.addonRef}] no external abstract for:`,
-      parsed.title ?? parsed.raw,
-    );
-    injectNoAbstractFoundLabel(referenceRowEl);
+  const external = await lookUpExternally(parsed);
+  // Results with an error are deliberately not cached: a rate limit or
+  // network blip should be retried on the next hover, not remembered.
+  if (!isError(external.crossref) && !isError(external.semanticScholar)) {
+    setCachedResults(parsed, external);
   }
+  return { library, external };
+}
+
+async function lookUpExternally(
+  parsed: ParsedReference,
+): Promise<ExternalResults> {
+  const crossref = await fetchCrossrefAbstract(parsed);
+  if (crossref.kind === "found") return { crossref };
+  return {
+    crossref,
+    semanticScholar: await fetchSemanticScholarAbstract(parsed),
+  };
 }
 
 export function detachAll(): void {

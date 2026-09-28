@@ -4,6 +4,7 @@ import {
   buildTitleSearchUrl,
   getStatus,
   isThrottledStatus,
+  reserveRequestSlot,
 } from "../../src/modules/semanticScholar";
 
 describe("semanticScholar", function () {
@@ -83,6 +84,24 @@ describe("semanticScholar", function () {
 
     it("does not treat a missing status as throttled", function () {
       assert.isFalse(isThrottledStatus(undefined));
+    });
+  });
+
+  describe("reserveRequestSlot", function () {
+    it("sends immediately when the queue is idle", function () {
+      assert.deepEqual(reserveRequestSlot(5000, 0, 1100), {
+        waitMs: 0,
+        nextSlot: 6100,
+      });
+    });
+
+    it("waits for the reserved slot when requests arrive back to back", function () {
+      const first = reserveRequestSlot(5000, 0, 1100);
+      const second = reserveRequestSlot(5000, first.nextSlot, 1100);
+      const third = reserveRequestSlot(5100, second.nextSlot, 1100);
+      assert.equal(second.waitMs, 1100);
+      assert.equal(third.waitMs, 2100);
+      assert.equal(third.nextSlot, 8300);
     });
   });
 });

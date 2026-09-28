@@ -1,30 +1,31 @@
+import type { LibraryStatus } from "./lookupReport";
 import type { ParsedReference } from "./referenceParser";
 
-export interface ResolvedItem {
-  itemID: number;
-  title: string;
-  abstractNote: string;
-}
-
 /**
- * Try to find a local Zotero item matching a parsed reference, and return it
- * only if it has a non-empty abstract. A DOI match (when we have one) is
- * tried first since it's exact; a title/creator "contains" search is a much
- * fuzzier fallback and can both miss real matches and hit wrong ones.
+ * Try to find a local Zotero item matching a parsed reference, and report
+ * whether it's there and whether it has an abstract. A DOI match (when we
+ * have one) is tried first since it's exact; a title/creator "contains"
+ * search is a much fuzzier fallback and can both miss real matches and hit
+ * wrong ones. Never throws: a failed search is reported as an error status.
  */
 export async function resolveLocalAbstract(
   parsed: ParsedReference,
-): Promise<ResolvedItem | undefined> {
-  const itemID =
-    (parsed.doi && (await findItemIDByDOI(parsed.doi))) ||
-    (parsed.title && (await findItemIDByTitle(parsed.title, parsed.authors)));
-  if (!itemID) return undefined;
+): Promise<LibraryStatus> {
+  try {
+    const itemID =
+      (parsed.doi && (await findItemIDByDOI(parsed.doi))) ||
+      (parsed.title && (await findItemIDByTitle(parsed.title, parsed.authors)));
+    if (!itemID) return { kind: "notInLibrary" };
 
-  const item = await Zotero.Items.getAsync(itemID);
-  const abstractNote = item?.getField("abstractNote");
-  if (!item || !abstractNote) return undefined;
-
-  return { itemID, title: item.getField("title"), abstractNote };
+    const item = await Zotero.Items.getAsync(itemID);
+    if (!item) return { kind: "notInLibrary" };
+    const abstractNote = String(item.getField("abstractNote") ?? "").trim();
+    return abstractNote
+      ? { kind: "found", abstract: abstractNote }
+      : { kind: "noAbstract" };
+  } catch (e: any) {
+    return { kind: "error", message: String(e?.message ?? e) };
+  }
 }
 
 async function findItemIDByDOI(doi: string): Promise<number | undefined> {

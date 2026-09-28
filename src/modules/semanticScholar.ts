@@ -1,5 +1,13 @@
 import { config } from "../../package.json";
 import { getPref } from "../utils/prefs";
+import {
+  combineResults,
+  extractFailureDetails,
+  failureResult,
+  NO_QUERY,
+  recordResult,
+  type LookupResult,
+} from "./lookupResult";
 import type { ParsedReference } from "./referenceParser";
 import { normalizeText } from "./textUtils";
 
@@ -17,18 +25,30 @@ const BASE_URL = "https://api.semanticscholar.org/graph/v1/paper";
 const MAX_RETRIES = 3;
 const INITIAL_BACKOFF_MS = 1000;
 const MAX_BACKOFF_MS = 30000;
+// A (free) API key's default limit is 1 request/second across all
+// endpoints, and one hover can fire several requests (DOI then title, plus
+// retries; grouped citations resolve rows in parallel). Every request -
+// retries included - goes through one shared queue spaced this far apart.
+const MIN_REQUEST_INTERVAL_MS = 1100;
+let nextRequestSlot = 0;
 
 export async function fetchSemanticScholarAbstract(
   parsed: ParsedReference,
-): Promise<string | undefined> {
+): Promise<LookupResult> {
+  let byDoi = NO_QUERY;
   if (parsed.doi) {
-    const byDoi = await fetchByDOI(parsed.doi);
-    if (byDoi) return byDoi;
+    byDoi = await fetchByDOI(parsed.doi);
+    // A rejected key will be rejected for the title search too - skip it.
+    if (byDoi.kind === "found" || isAuthError(byDoi)) return byDoi;
   }
   if (parsed.title) {
-    return fetchByTitleSearch(parsed.title);
+    return combineResults(byDoi, await fetchByTitleSearch(parsed.title));
   }
-  return undefined;
+  return byDoi;
+}
+
+function isAuthError(result: LookupResult): boolean {
+  return result.kind === "error" && result.failure.reason === "auth";
 }
 
 export function buildDoiUrl(doi: string): string {
@@ -39,20 +59,27 @@ export function buildTitleSearchUrl(title: string): string {
   return `${BASE_URL}/search?query=${encodeURIComponent(title)}&fields=title,abstract&limit=1`;
 }
 
-async function fetchByDOI(doi: string): Promise<string | undefined> {
-  const data = await requestJSON(buildDoiUrl(doi));
-  return normalizeText(data?.abstract);
+async function fetchByDOI(doi: string): Promise<LookupResult> {
+  return requestAbstract(buildDoiUrl(doi), (data) =>
+    recordResult(!!data, normalizeText(data?.abstract)),
+  );
 }
 
-async function fetchByTitleSearch(title: string): Promise<string | undefined> {
-  const data = await requestJSON(buildTitleSearchUrl(title));
-  return normalizeText(data?.data?.[0]?.abstract);
+async function fetchByTitleSearch(title: string): Promise<LookupResult> {
+  return requestAbstract(buildTitleSearchUrl(title), (data) => {
+    const top = data?.data?.[0];
+    return recordResult(!!top, normalizeText(top?.abstract));
+  });
 }
 
-async function requestJSON(url: string): Promise<any | undefined> {
+async function requestAbstract(
+  url: string,
+  toResult: (data: any) => LookupResult,
+): Promise<LookupResult> {
   let backoffMs = INITIAL_BACKOFF_MS;
 
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    await waitForRequestSlot();
     try {
       const xhr = await Zotero.HTTP.request("GET", url, {
         responseType: "json",
@@ -64,7 +91,7 @@ async function requestJSON(url: string): Promise<any | undefined> {
         errorDelayMax: 0,
         headers: apiKeyHeaders(),
       });
-      return xhr.response;
+      return toResult(xhr.response);
     } catch (e) {
       const status = getStatus(e);
       const isThrottled = isThrottledStatus(status);
@@ -72,7 +99,7 @@ async function requestJSON(url: string): Promise<any | undefined> {
 
       if (!isThrottled || !attemptsLeft) {
         logRequestFailure(url, e, attempt);
-        return undefined;
+        return failureResult(extractFailureDetails(e));
       }
 
       ztoolkit.log(
@@ -82,11 +109,38 @@ async function requestJSON(url: string): Promise<any | undefined> {
       backoffMs *= 2;
     }
   }
-  return undefined;
+  // Unreachable: the final attempt always returns from the catch above.
+  return { kind: "error", failure: { reason: "network" } };
+}
+
+async function waitForRequestSlot(): Promise<void> {
+  const slot = reserveRequestSlot(
+    Date.now(),
+    nextRequestSlot,
+    MIN_REQUEST_INTERVAL_MS,
+  );
+  nextRequestSlot = slot.nextSlot;
+  if (slot.waitMs > 0) await delay(slot.waitMs);
+}
+
+/**
+ * Pure scheduling step for the request queue: given the current time and the
+ * earliest time the next request may go out, how long must this request wait,
+ * and when may the one after it go?
+ */
+export function reserveRequestSlot(
+  now: number,
+  nextSlot: number,
+  intervalMs: number,
+): { waitMs: number; nextSlot: number } {
+  const sendAt = Math.max(now, nextSlot);
+  return { waitMs: sendAt - now, nextSlot: sendAt + intervalMs };
 }
 
 function apiKeyHeaders(): Record<string, string> | undefined {
-  const apiKey = getPref("semanticScholarApiKey");
+  // Trimmed: a pasted key easily picks up a stray space/newline, which the
+  // API rejects with the same 403 as a genuinely wrong key.
+  const apiKey = getPref("semanticScholarApiKey")?.trim();
   return apiKey ? { "x-api-key": apiKey } : undefined;
 }
 
