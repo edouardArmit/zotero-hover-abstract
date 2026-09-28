@@ -6,7 +6,7 @@ Guidance for Claude Code when working in this repo. Also read the global `swe-wo
 
 A Zotero (7+/10) plugin. Zotero's built-in PDF reader has a native hover popup that shows the resolved reference (authors/title/etc.) for an in-text citation — this plugin observes that popup and injects the cited work's abstract into it. By default it only checks the user's local Zotero library (no network calls). An opt-in preference ("Also check Crossref and Semantic Scholar...", off by default) extends resolution to Crossref, then Semantic Scholar, for citations not in the library.
 
-Repo: https://github.com/edouardArmit/zotero-hover-abstract (public). Single `main` branch, trunk-based (see `swe-workflow`). Current release: **v0.3.0**.
+Repo: https://github.com/edouardArmit/zotero-hover-abstract (public). Single `main` branch, trunk-based (see `swe-workflow`). Current release: **v0.3.1**.
 
 Scaffolded from `windingwind/zotero-plugin-template` (TypeScript, esbuild via `zotero-plugin-scaffold`, `zotero-plugin-toolkit`), then heavily stripped down — the template's demo/example code (extra columns, context menus, dialogs) was all removed; nothing in `src/` is template boilerplate anymore.
 
