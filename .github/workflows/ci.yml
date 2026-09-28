@@ -4,9 +4,12 @@ on:
   push:
     branches:
       - main
+      - ci-probe
+      - ci-probe
   pull_request:
     branches:
       - main
+      - ci-probe
 
 jobs:
   lint:
