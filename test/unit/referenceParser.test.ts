@@ -80,4 +80,36 @@ describe("parseReferenceText", function () {
     assert.equal(result.raw, "[1] Jane Doe. 2019. A Paper Title. A Venue.");
     assert.equal(result.authors, "Jane Doe");
   });
+
+  it("parses an IEEE-style reference with a curly-quoted title", function () {
+    const result = parseReferenceText(
+      "[23] L. H. Hsia, Y. N. Lin, and G. J. Hwang, \u201CA creative problem solvingbased flipped learning strategy for promoting students\u2019 performing creativity,\u201D British Journal of Educational Technology, vol. 52, no. 4, pp. 1771-1787, 2021.",
+    );
+    assert.equal(result.authors, "L. H. Hsia, Y. N. Lin, and G. J. Hwang");
+    assert.equal(
+      result.title,
+      "A creative problem solvingbased flipped learning strategy for promoting students\u2019 performing creativity",
+    );
+    assert.equal(result.year, "2021");
+  });
+
+  it("parses an IEEE-style reference with a straight-quoted title", function () {
+    const result = parseReferenceText(
+      '[24] V. S. Vaghela and D. F. Parsana, "Teaching and Learning: Fostering Student Engagement, Critical Thinking, and Lifelong Learning Skills," 2024.',
+    );
+    assert.equal(result.authors, "V. S. Vaghela and D. F. Parsana");
+    assert.equal(
+      result.title,
+      "Teaching and Learning: Fostering Student Engagement, Critical Thinking, and Lifelong Learning Skills",
+    );
+    assert.equal(result.year, "2024");
+  });
+
+  it("keeps parsing author-year style when the title itself contains quotes", function () {
+    const result = parseReferenceText(
+      '[5] Jane Doe. 2019. Why "vibe coding" fails. In Proc. X. ACM.',
+    );
+    assert.equal(result.authors, "Jane Doe");
+    assert.equal(result.title, 'Why "vibe coding" fails');
+  });
 });
