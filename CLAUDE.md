@@ -49,9 +49,10 @@ src/index.ts                      - bootstrap entry, lifecycle wiring
 src/hooks.ts                      - lifecycle dispatch; registers the preferences pane; reader-tab notifier registration
 src/modules/popupObserver.ts      - detects the native citation popup, reads reference text per row, orchestrates resolution (local -> cache -> Crossref -> Semantic Scholar) into a LookupReport
 src/modules/referenceParser.ts    - pure: parses a reference string into {authors, year, title, doi}
-src/modules/libraryResolver.ts    - local lookup in My Library, then each group library (DOI, then title/creator search) -> LibraryStatus: found / notInLibrary / noAbstract / error
+src/modules/libraryResolver.ts    - local lookup in My Library, then each group library (DOI, then exact title/creator search, then fuzzy title match) -> LibraryStatus: found / notInLibrary / noAbstract / error
 src/modules/crossref.ts           - Crossref fallback lookup (DOI, then bibliographic search on title or whole reference text)
 src/modules/semanticScholar.ts    - Semantic Scholar fallback lookup, shared ~1.1s request spacing, retry/backoff on 429/5xx, optional API key
+src/modules/titleMatch.ts         - pure: fuzzy title matching for the local fallback (compacted-title Dice similarity, author guard), firstAuthorLastName
 src/modules/lookupResult.ts       - pure: LookupResult (found / missing+detail / error+HttpFailure), classifyFailure, combineResults, extractFailureDetails
 src/modules/lookupReport.ts       - pure: LookupReport -> popup heading + per-source status lines (formatReport); combineLibraryStatuses
 src/modules/textUtils.ts          - pure: stripXmlTags (JATS-XML), normalizeText
@@ -82,9 +83,6 @@ test/startup.test.ts              - Zotero-integration test
 - **The dev profile's data directory is currently `~/Zotero` - the real library**, since `.env`'s `ZOTERO_PLUGIN_DATA_DIR` is empty. The plugin only reads the library so this is safe today, but a separate data dir would be cleaner.
 
 ## Known open items / possible next steps
-
-- Make "online search is off" / the API-key error in the popup a clickable link to the plugin's Settings pane.
-- Local title search is an exact "contains" match, so PDF text-extraction artefacts miss real library items (e.g. reference text "21stcentury" vs library title "21st-Century"). Needs a normalized/fuzzy title comparison.
 
 - The HTTP request/retry control flow in `crossref.ts`/`semanticScholar.ts` isn't unit-tested (would need mocking `Zotero.HTTP.request`) — only the pure helpers (URL builders, status classification, text normalization) are.
 - `zotero-plugin-scaffold` is slightly behind latest (0.8.2 installed vs 0.9.2 available as of last check) — Dependabot's weekly grouped PRs should pick this up; not urgent.

@@ -11,7 +11,7 @@ Built in stages, each verified in a real Zotero install before the next started:
 - **Stage 0** — bare plugin scaffold: loads in Zotero, no feature logic yet.
 - **Stage 1** — detect Zotero's native citation popup (`.citation-popup` in `reader._iframeWindow.document`) via `MutationObserver` and read its resolved reference text.
 - **Stage 2** — parse the popup's reference text into `{authors, year, title, doi}` (`src/modules/referenceParser.ts`), best-effort.
-- **Stage 3** — resolve to a local Zotero item via DOI or title/creator search (`src/modules/libraryResolver.ts`) — in My Library first, then each group library; the first copy with an abstract wins, and the popup names the group it came from.
+- **Stage 3** — resolve to a local Zotero item via DOI or title/creator search (`src/modules/libraryResolver.ts`) — in My Library first, then each group library; the first copy with an abstract wins, and the popup names the group it came from. If the exact title search misses, a fuzzy match tolerates PDF text-extraction glitches (lost hyphens, ligatures, accents, stray spaces), requiring the first author to match unless the titles are identical once punctuation and spacing are ignored.
 - **Stage 3b** — inject the found abstract into the visible popup itself (`src/modules/popupInjector.ts`).
 - **Stage 4** — optional fallback to Crossref, then Semantic Scholar, when there's no local abstract, with an in-memory cache. Off by default (see preferences below).
 - **Stage 4b** — handled Semantic Scholar rate limits (exponential backoff, optional API key support).
@@ -64,6 +64,7 @@ src/modules/referenceParser.ts   - best-effort parse of the reference text into 
 src/modules/libraryResolver.ts   - looks a parsed reference up in My Library, then each group library: found / not found / empty abstract
 src/modules/crossref.ts          - Crossref fallback lookup (DOI, then bibliographic search, or the whole reference text)
 src/modules/semanticScholar.ts   - Semantic Scholar fallback lookup, tried after Crossref: spaced ~1 req/s, retry/backoff on 429/5xx
+src/modules/titleMatch.ts        - pure: fuzzy title matching, so PDF text glitches ("21stcentury" for "21st-Century") still find library items
 src/modules/lookupResult.ts      - pure: per-source result type (found / missing+why / error+HTTP details), classification, merging
 src/modules/lookupReport.ts      - pure: formats a hover's per-source results into the popup heading + status lines
 src/modules/abstractCache.ts     - in-memory cache of external results (hits 24 h, misses 1 h, errors never; cleared on pref change)

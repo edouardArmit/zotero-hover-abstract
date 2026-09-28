@@ -1,5 +1,16 @@
+import { config } from "../../package.json";
 import { combineLibraryStatuses, type LibraryStatus } from "./lookupReport";
 import type { ParsedReference } from "./referenceParser";
+import {
+  firstAuthorLastName,
+  pickBestMatch,
+  retrievalWords,
+  type TitleCandidate,
+} from "./titleMatch";
+
+// Upper bound on candidates scored per library by the fuzzy fallback - a
+// loose "title contains any distinctive word" search can return many.
+const MAX_FUZZY_CANDIDATES = 2000;
 
 /**
  * Look a parsed reference up in the user's own library, then in each group
@@ -47,7 +58,12 @@ async function resolveInLibrary(
     const itemID =
       (parsed.doi && (await findItemIDByDOI(parsed.doi, libraryID))) ||
       (parsed.title &&
-        (await findItemIDByTitle(parsed.title, parsed.authors, libraryID)));
+        ((await findItemIDByTitle(parsed.title, parsed.authors, libraryID)) ||
+          (await findItemIDByFuzzyTitle(
+            parsed.title,
+            parsed.authors,
+            libraryID,
+          ))));
     if (!itemID) return { kind: "notInLibrary" };
 
     const item = await Zotero.Items.getAsync(itemID);
@@ -72,7 +88,7 @@ async function findItemIDByDOI(
   const ids = await runSearch(libraryID, (search) => {
     search.addCondition("DOI", "is", doi);
   });
-  return ids[0];
+  return firstRegularItemID(ids);
 }
 
 async function findItemIDByTitle(
@@ -88,7 +104,62 @@ async function findItemIDByTitle(
       search.addCondition("creator", "contains", lastName);
     }
   });
-  return ids[0];
+  return firstRegularItemID(ids);
+}
+
+/**
+ * Fallback when the exact "title contains" search misses, typically because
+ * the PDF's text layer mangled the title (lost hyphens, ligatures, accents).
+ * Fetches candidates loosely - title contains any of the most distinctive
+ * words, or a creator matches the first author - then scores them in
+ * titleMatch.ts, which also guards against near-matches on generic titles.
+ */
+async function findItemIDByFuzzyTitle(
+  title: string,
+  authors: string | undefined,
+  libraryID: number,
+): Promise<number | undefined> {
+  const words = retrievalWords(title);
+  const lastName = authors ? firstAuthorLastName(authors) : undefined;
+  if (!words.length && !lastName) return undefined;
+
+  const ids = await runSearch(libraryID, (search) => {
+    search.addCondition("joinMode", "any");
+    for (const word of words) search.addCondition("title", "contains", word);
+    if (lastName) search.addCondition("creator", "contains", lastName);
+  });
+  if (!ids.length) return undefined;
+
+  const items = (
+    await Zotero.Items.getAsync(ids.slice(0, MAX_FUZZY_CANDIDATES))
+  ).filter((item) => item?.isRegularItem());
+  // One batched load for all candidates rather than one query per item
+  // (see resolveInLibrary on why fields must be loaded explicitly).
+  await Zotero.Items.loadDataTypes(items, ["itemData", "creators"]);
+
+  const candidates: TitleCandidate[] = items.map((item) => ({
+    id: item.id,
+    title: String(item.getField("title") ?? ""),
+    creatorLastNames: item.getCreators().map((c) => c.lastName ?? ""),
+  }));
+  const match = pickBestMatch(title, lastName, candidates);
+  if (match) {
+    ztoolkit.log(
+      `[${config.addonRef}] fuzzy title match in library ${libraryID}: item ${match.id}, similarity ${match.similarity.toFixed(2)}`,
+    );
+  }
+  return match?.id;
+}
+
+/**
+ * Search results include attachments and notes, whose titles often contain
+ * the paper's title (e.g. "Author - 2020 - Title.pdf") but which have no
+ * abstract field - skip to the first regular item.
+ */
+async function firstRegularItemID(ids: number[]): Promise<number | undefined> {
+  if (!ids.length) return undefined;
+  const items = await Zotero.Items.getAsync(ids);
+  return items.find((item) => item?.isRegularItem())?.id;
 }
 
 // Zotero.Search excludes trashed items by default.
@@ -99,12 +170,4 @@ async function runSearch(
   const search = new Zotero.Search({ libraryID });
   configure(search);
   return search.search();
-}
-
-/** "Andrew Luxton-Reilly, Simon, ..." -> rough guess: "Luxton-Reilly" */
-function firstAuthorLastName(authors: string): string | undefined {
-  const firstAuthor = authors.split(",")[0]?.trim();
-  if (!firstAuthor) return undefined;
-  const words = firstAuthor.split(/\s+/);
-  return words[words.length - 1];
 }
