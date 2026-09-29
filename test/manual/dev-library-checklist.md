@@ -71,8 +71,11 @@ show "found" and `(cached)` once Semantic Scholar answers, so enter a free API
 key in the plugin's settings for a reliable run.
 
 Verified on 2026-09-29 with online search off: rows 1-5 and 10. With it on:
-the Crossref part of rows 5-6, library hits skipping online search, and errors
-not being cached.
+row 5 in full (Semantic Scholar found [31] once its limit eased), the cache
+(hovering [31] again logged `(cached)` with no network requests), library hits
+skipping online search, and errors not being cached (the rate-limited [45]
+asked again on every hover). Row 6 still needs a run where Semantic Scholar
+answers [45].
 
 | #   | Hover (in PDF A)                                            | Library setup                                                                                                   | Expected, online off                                                            | Expected, online on                                                            |
 | --- | ----------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
