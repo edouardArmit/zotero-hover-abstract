@@ -6,7 +6,7 @@ Guidance for Claude Code when working in this repo. Also read the global `swe-wo
 
 A Zotero (7+/10) plugin. Zotero's built-in PDF reader has a native hover popup that shows the resolved reference (authors/title/etc.) for an in-text citation — this plugin observes that popup and injects the cited work's abstract into it. By default it only checks the user's local Zotero library (no network calls). An opt-in preference ("Also check Crossref and Semantic Scholar...", off by default) extends resolution to Crossref, then Semantic Scholar, for citations not in the library.
 
-Repo: https://github.com/edouardArmit/zotero-hover-abstract (public). Single `main` branch, trunk-based (see `swe-workflow`). Current release: **v0.3.1**.
+Repo: https://github.com/edouardArmit/zotero-hover-abstract (public). Single `main` branch, trunk-based (see `swe-workflow`). Current release: **v0.3.2**.
 
 Scaffolded from `windingwind/zotero-plugin-template` (TypeScript, esbuild via `zotero-plugin-scaffold`, `zotero-plugin-toolkit`), then heavily stripped down — the template's demo/example code (extra columns, context menus, dialogs) was all removed; nothing in `src/` is template boilerplate anymore.
 
@@ -21,6 +21,8 @@ npm run lint:fix     # prettier --write + eslint --fix
 npm run test:unit    # fast offline unit tests (mocha+chai via tsx), test/unit/ - no Zotero needed
 npm run test         # zotero-plugin test - integration test, launches real headless Zotero
 ```
+
+**npm 12+ refuses git dependencies by default** (`allow-git=none`). `zotero-types` pulls `pdfjs-dist` from a pinned GitHub commit, so a plain `npm install`/`npm ci` fails with "Fetching packages of type "git" have been disabled". Use `npm ci --allow-git=all` (CI's older npm doesn't need it).
 
 **`npm run start` gotcha**: hot-reload only rebuilds `src/*.ts`. Changes to `addon/` files (`preferences.xhtml`, `prefs.js`, `.ftl` locale files) or `.env`/`zotero-plugin.config.ts` need a full restart (`Ctrl+C`, rerun), not just a save.
 
@@ -85,7 +87,9 @@ test/startup.test.ts              - Zotero-integration test
 ## Known open items / possible next steps
 
 - The HTTP request/retry control flow in `crossref.ts`/`semanticScholar.ts` isn't unit-tested (would need mocking `Zotero.HTTP.request`) — only the pure helpers (URL builders, status classification, text normalization) are.
-- `zotero-plugin-scaffold` is slightly behind latest (0.8.2 installed vs 0.9.2 available as of last check) — Dependabot's weekly grouped PRs should pick this up; not urgent.
 - No CHANGELOG.md; release notes currently live only on GitHub Releases.
 - From repo creation (2026-09-21) until 2026-09-28, no event-triggered workflow ever ran: pushes, tag pushes, Dependabot PRs and the Issue Bot cron. Every CI and Issue Bot `run_number` started at 1 on 2026-09-28, so no runs had been deleted. The workflow files were valid and unchanged, the same `ci.yml` passed once it ran, and the `gh` token had the `repo` and `workflow` scopes. Triggers started working right after the first manual `workflow_dispatch` (Issue Bot). If CI/Release silently stop again, try `gh workflow run CI` first. Also check whether the Issue Bot cron (01:30 UTC daily) has been producing `schedule` runs.
-- GitHub Dependabot has ~36 open alerts, all in devDependencies (build tooling transitively pulled in by `zotero-plugin-scaffold`/eslint/mocha), none reachable in the shipped `.xpi` - reviewed, no action needed, left as-is.
+- Dependabot: minor/patch bumps arrive as one weekly `all-non-major` PR, security updates as one `security` PR, and each major bump as its own PR. All 36 alerts were cleared on 2026-09-29 (v0.3.2). TypeScript 7 is on hold: typescript-eslint (via `@zotero-plugin/eslint-config`) only supports `typescript <6.1`, and eslint crashes on TS 7, so re-check this before merging a TS 7 PR.
+- `zotero-plugin-toolkit` is a runtime dependency (bundled into the `.xpi`), unlike everything else Dependabot bumps. Since 5.2.0 `ZoteroToolkit` must be imported from `zotero-plugin-toolkit/ztoolkit`. After a toolkit bump, live-test with `npm run start`: hover a citation, toggle the online-lookup setting, close a PDF tab, and trigger a hot reload.
+- `createZToolkit()` is called twice (`addon.ts` and `hooks.ts` `onMainWindowLoad`), each building a full `ZoteroToolkit`, so its field hooks get patched twice per startup. That's leftover template code, harmless so far; a single instance, or the minimal `MyToolkit` in `utils/ztoolkit.ts`, would be cleaner.
+- `doc/` holds the upstream template's README translations (not about this plugin, unreferenced) and is excluded from prettier. They're candidates for deletion.
