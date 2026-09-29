@@ -62,6 +62,18 @@ regression or an online source that changed, and the log line says which.
 Scholar_. The online results were observed on 2026-09-29 and can change as
 those services add abstracts.
 
+**Semantic Scholar without an API key** shares one rate limit with every
+anonymous user, so it can return 429 on every attempt, as it did on the
+evening of 2026-09-29. The correct behaviour then is: retries after 1s, 2s and
+4s, the popup shows a rate-limit status rather than "not found", and the
+result is **not** cached (the next hover asks again). Rows 5 and 6 can only
+show "found" and `(cached)` once Semantic Scholar answers, so enter a free API
+key in the plugin's settings for a reliable run.
+
+Verified on 2026-09-29 with online search off: rows 1-5 and 10. With it on:
+the Crossref part of rows 5-6, library hits skipping online search, and errors
+not being cached.
+
 | #   | Hover (in PDF A)                                            | Library setup                                                                                                   | Expected, online off                                                            | Expected, online on                                                            |
 | --- | ----------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
 | 1   | [35] Parker 2017, How do you feel: Affective expressions... | My Library copy: abstract `[test] Parker - My Library copy`. Group copy: abstract `[test] Parker - group copy`. | Shows `[test] Parker - My Library copy` (My Library is searched first)          | Same, no online lookup                                                         |
