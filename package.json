@@ -60,10 +60,9 @@
     ]
   },
   "allowScripts": {
-    "@swc/core@1.15.1": true,
+    "@swc/core": false,
     "es5-ext@0.10.64": true,
     "fsevents@2.3.3": true,
-    "esbuild@0.25.12": true,
     "esbuild@0.28.2": true
   }
 }

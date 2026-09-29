@@ -22,3 +22,15 @@ updates:
         applies-to: security-updates
         patterns:
           - "*"
+
+  # Actions used in .github/workflows (e.g. actions/upload-artifact), all bumps
+  # in one weekly PR. zotero-plugin-dev/workflows/setup-js is pinned to @main,
+  # so Dependabot leaves it alone.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    groups:
+      all-actions:
+        patterns:
+          - "*"
