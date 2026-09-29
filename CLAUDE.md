@@ -30,7 +30,7 @@ npm run test         # zotero-plugin test - integration test, launches real head
 
 ## Releasing
 
-Bump `version` in `package.json`, commit, then push an annotated `vX.Y.Z` tag (`git tag -a vX.Y.Z -m ... && git push origin main vX.Y.Z`). `.github/workflows/release.yml` then runs `zotero-plugin release` in CI, which:
+Before a release, run through `test/manual/dev-library-checklist.md` in a dev Zotero pointed at the test library (never commit that library, only the checklist). Then bump `version` in `package.json`, commit, then push an annotated `vX.Y.Z` tag (`git tag -a vX.Y.Z -m ... && git push origin main vX.Y.Z`). `.github/workflows/release.yml` then runs `zotero-plugin release` in CI, which:
 
 1. creates the `vX.Y.Z` GitHub Release and uploads the `.xpi`, then
 2. uploads `update.json`/`update-beta.json` to the `release` pre-release ("Release Manifest"), replacing the old ones. That file is what every installed copy's `update_url` polls, so **never delete the `release` tag/release**.
@@ -63,6 +63,7 @@ src/modules/popupInjector.ts      - appends the formatted report into a specific
 src/utils/prefs.ts                - typed Zotero.Prefs get/set/clear wrappers
 test/unit/                        - offline unit tests for the pure modules above
 test/startup.test.ts              - Zotero-integration test
+test/manual/dev-library-checklist.md - manual end-to-end checklist against the dev test library
 ```
 
 `popupObserver.ts` is the orchestrator: for each `.reference-row` in a detected `.citation-popup`, it checks `libraryResolver` (never cached), then (only if `enableExternalLookups` is on) the cache, then `crossref`, then `semanticScholar`. Each source's result goes into a `LookupReport`, which `lookupReport.formatReport` turns into the text `popupInjector` shows. Every hover logs a one-line summary (`lookup report for "...": library=... crossref=... semanticScholar=...`) — the fastest way to diagnose a user report.
