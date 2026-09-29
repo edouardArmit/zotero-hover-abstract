@@ -12,6 +12,8 @@ no real abstracts. This file only lists what to set up and what to expect.
 1. **Separate data directory.** Create an empty folder outside the repo, e.g.
    `~/Zotero-dev`, and set `ZOTERO_PLUGIN_DATA_DIR` in `.env` to it. Don't
    leave it empty: an empty value falls back to your real `~/Zotero` library.
+   Stop the dev Zotero by quitting it (Zotero > Quit), never by closing or
+   killing its terminal, and quit your real Zotero before starting it.
 2. **Sync.** In the dev profile, either keep sync off or sign in only to the
    **test** zotero.org account. Never sign in to your real account there, or
    a sync would pull your whole real library into the dev data directory.

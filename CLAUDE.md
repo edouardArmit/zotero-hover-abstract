@@ -83,7 +83,7 @@ test/manual/dev-library-checklist.md - manual end-to-end checklist against the d
 
 - **HTTP/2 responses have an empty `statusText`** (Semantic Scholar's 403 arrives like this) - `lookupReport.ts` fills in standard reason phrases for common codes.
 - **A Semantic Scholar API key's default limit is 1 request/second**, across all endpoints - hence the shared request spacing in `semanticScholar.ts`. A 403 means the key itself is rejected (e.g. truncated when pasted - real keys have a short prefix before a dash), not a rate limit.
-- **The dev profile's data directory is currently `~/Zotero` - the real library**, since `.env`'s `ZOTERO_PLUGIN_DATA_DIR` is empty. The plugin only reads the library so this is safe today, but a separate data dir would be cleaner.
+- **Never run the dev Zotero against the real `~/Zotero` database, and never stop it by killing its terminal.** An empty `ZOTERO_PLUGIN_DATA_DIR` doesn't mean fresh data: it falls back to the profile's last data directory, which was the real library. On 2026-09-29 a dev session on the real database was killed by closing its terminal tab, which left an un-checkpointed `zotero.sqlite-wal`. The user's next Zotero start then hung on "Checking database integrity" for 90 minutes, because another process (a Zotero MCP server) held 15 connections to `zotero.sqlite` and blocked recovery. Stopping that process let Zotero recover in seconds, and nothing was lost. `.env` now points at `~/Zotero-dev`. Stop the dev Zotero by quitting it in Zotero (or Ctrl+C once, then wait), and make sure nothing else holds `zotero.sqlite` open while Zotero runs (`lsof ~/Zotero/zotero.sqlite*`).
 
 ## Known open items / possible next steps
 
