@@ -74,8 +74,10 @@ Verified on 2026-09-29 with online search off: rows 1-5 and 10. With it on:
 row 5 in full (Semantic Scholar found [31] once its limit eased), the cache
 (hovering [31] again logged `(cached)` with no network requests), library hits
 skipping online search, and errors not being cached (the rate-limited [45]
-asked again on every hover). Row 6 still needs a run where Semantic Scholar
-answers [45].
+asked again on every hover). With a Semantic Scholar API key: row 6 in full
+([45] answered "no abstract", and hovering it again logged `(cached)` with no
+network requests). Saving the key cleared the cache, so the next [31] hover
+fetched again.
 
 | #   | Hover (in PDF A)                                            | Library setup                                                                                                   | Expected, online off                                                            | Expected, online on                                                            |
 | --- | ----------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
@@ -119,7 +121,7 @@ Run with `npm run start`. Log lines appear in the dev Zotero's console and in
 
 - [ ] Startup logs `[Zotero Hover Abstract] [hoverabstract] starting (code loaded at ...)`.
 - [ ] Settings (app menu > Settings) shows the _Zotero Hover Abstract_ pane.
-- [ ] Toggling the online setting takes effect on the next hover, and clears the cache (row 6 no longer says `(cached)`).
+- [ ] Changing a plugin setting (the online toggle or the API key) takes effect on the next hover and clears the cache: a previously `(cached)` reference is fetched again.
 - [ ] Opening K (216 pages) and hovering still works, with no long freeze.
 - [ ] Closing a PDF tab logs no errors.
 - [ ] Hot reload (save any file in `src/`) shows a new `code loaded at` time, and hovering still works.
