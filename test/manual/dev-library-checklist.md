@@ -161,32 +161,41 @@ check.
 What each citing paper's hovers returned, online search on with a Semantic
 Scholar key. A later difference is either a regression or a source that
 changed, and the `lookup report` log line says which. "S2" = Semantic Scholar.
-Rows marked _pre-fix_ were hovered before the APA parser fix (title parsed as
-`")"`), so re-check them.
+All rows reflect the parser after the APA fix (7b68edb).
 
-| Paper | Hover                                                       | Result                                                                                   |
-| ----- | ----------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
-| B     | [22] Rush & Connolly 2020                                   | S2: found                                                                                |
-| C     | [52] Prather et al., Metacognitive difficulties             | S2: found                                                                                |
-| C     | [54] Prather et al., "It's Weird That it Knows What I Want" | Crossref: found                                                                          |
-| C     | [8] Busjahn et al., Eye tracking in computing education     | Neither has an abstract                                                                  |
-| E     | [12] Kinnunen & Simon 2011                                  | Neither has an abstract                                                                  |
-| E     | [24] Rosseel 2012, lavaan                                   | S2: found                                                                                |
-| F     | [9] Arksey & O'Malley 2005                                  | S2: found                                                                                |
-| F     | [55] Eslami et al.                                          | S2: found                                                                                |
-| F     | [124] Stone et al., AI and life in 2030                     | Crossref: found                                                                          |
-| G     | superscript 1, Bennedsen & Caspersen 2007                   | Crossref: found (CACM layout, title not parsed)                                          |
-| G     | superscript 2, Guzdial & Elliott Tew 2006                   | No match (CACM layout, no title parsed)                                                  |
-| G     | superscript 3, McDowell et al. 2006                         | Crossref: found (via DOI)                                                                |
-| H     | (Skinner, 1996)                                             | Popup lists Patrick 1993, Schmitz 1993 and Skinner 1996; each: record found, no abstract |
-| H     | (Szabolcs, 2004), (Pekrun, 2005)                            | No abstract, _pre-fix_                                                                   |
-| I     | Bhat et al. (2022)                                          | Record found, no abstract                                                                |
-| I     | (Magazine, 2022), (Pavlik, 2023)                            | No abstract, _pre-fix_                                                                   |
-| J     | Rane (2023)                                                 | Crossref: no abstract. S2: no match, _pre-fix_                                           |
-| L     | (Kampylis et al., 2009)                                     | Neither has an abstract (via DOI)                                                        |
-| L     | (Cropley & Cropley, 2019)                                   | Crossref: found (via DOI)                                                                |
-| L     | (Kang, 2020)                                                | Record found, no abstract                                                                |
-| M     | [1] Becker et al. 2023                                      | S2: found                                                                                |
+| Paper | Hover                                                                                                                              | Result                                                                                                                    |
+| ----- | ---------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| B     | [22] Rush & Connolly 2020                                                                                                          | S2: found                                                                                                                 |
+| C     | [52] Prather et al., Metacognitive difficulties                                                                                    | S2: found                                                                                                                 |
+| C     | [54] Prather et al., "It's Weird That it Knows What I Want"                                                                        | Crossref: found                                                                                                           |
+| C     | [8] Busjahn et al., Eye tracking in computing education                                                                            | Neither has an abstract                                                                                                   |
+| E     | [12] Kinnunen & Simon 2011                                                                                                         | Neither has an abstract                                                                                                   |
+| E     | [24] Rosseel 2012, lavaan                                                                                                          | S2: found                                                                                                                 |
+| F     | [9] Arksey & O'Malley 2005                                                                                                         | S2: found                                                                                                                 |
+| F     | [55] Eslami et al.                                                                                                                 | S2: found                                                                                                                 |
+| F     | [124] Stone et al., AI and life in 2030                                                                                            | Crossref: found                                                                                                           |
+| G     | superscript 1, Bennedsen & Caspersen 2007                                                                                          | Crossref: found (CACM layout, title not parsed)                                                                           |
+| G     | superscript 2, Guzdial & Elliott Tew 2006                                                                                          | No match (CACM layout, no title parsed)                                                                                   |
+| G     | superscript 3, McDowell et al. 2006                                                                                                | Crossref: found (via DOI)                                                                                                 |
+| H     | (Skinner, 1996)                                                                                                                    | Popup lists Patrick 1993, Schmitz 1993 and Skinner 1996; each: record found, no abstract                                  |
+| H     | (Szabolcs, 2004)                                                                                                                   | S2: record found, no abstract (was "no match" before the APA fix)                                                         |
+| H     | (Pekrun, 2005)                                                                                                                     | Popup lists about 24 Pekrun references at once. S2 found 3 abstracts; Crossref rate-limited most of them (see note below) |
+| H     | (Skinner, 1996), with Skinner 1996 in My Library (DOI `10.1037/0022-3514.71.3.549`, abstract `[test] Skinner - APA library match`) | Found in My Library: the APA library-match check                                                                          |
+| I     | Bhat et al. (2022)                                                                                                                 | Record found, no abstract                                                                                                 |
+| I     | (Magazine, 2022)                                                                                                                   | No match (a web article)                                                                                                  |
+| I     | (Pavlik, 2023)                                                                                                                     | Crossref: found (was "no abstract" before the APA fix)                                                                    |
+| J     | Rane (2023)                                                                                                                        | Crossref: found (was "no abstract" before the APA fix)                                                                    |
+| L     | (Kampylis et al., 2009)                                                                                                            | Neither has an abstract (via DOI)                                                                                         |
+| L     | (Cropley & Cropley, 2019)                                                                                                          | Crossref: found (via DOI)                                                                                                 |
+| L     | (Kang, 2020)                                                                                                                       | Record found, no abstract                                                                                                 |
+| M     | [1] Becker et al. 2023                                                                                                             | S2: found                                                                                                                 |
+
+**Crossref and many-row popups:** when one popup lists many references (H's
+"(Pekrun, 2005)" lists about 24), the plugin looks them all up at once.
+Semantic Scholar requests are spaced about 1.1s apart, but Crossref requests
+aren't, so Crossref answers most of them with 429. The errors are shown as
+such and not cached, so hovering again retries. Possible improvement: space
+or queue Crossref requests the same way.
 
 D and K get no citation popups (see the known limitations above).
 
