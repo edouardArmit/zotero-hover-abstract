@@ -46,10 +46,29 @@ export function parseReferenceText(rawText: string): ParsedReference {
     .replace(/^\.\s*/, "");
   const titleEnd = afterYear.indexOf(". ");
   const title =
-    (titleEnd === -1 ? afterYear : afterYear.slice(0, titleEnd)).trim() ||
-    undefined;
+    endAtQuestionOrExclamation(
+      (titleEnd === -1 ? afterYear : afterYear.slice(0, titleEnd)).trim(),
+    ) || undefined;
 
   return { raw, authors, year: yearMatch[0], title, doi };
+}
+
+// A year or a page range such as "695–729": text that belongs to the venue.
+const VENUE_HINT = /\b(19|20)\d{2}\b|\d+\s*[–-]\s*\d+/;
+
+/**
+ * A title ending in "?" or "!" has no ". " after it, so the venue runs into
+ * it: "What are emotions? And how can they be measured? Social science
+ * information 44, 4 (2005), 695–729." Cut after the last "?"/"!" only when
+ * what follows looks like a venue. Otherwise the mark is inside the title, and
+ * cutting there would send a too-short query to Semantic Scholar, whose title
+ * search takes the top hit.
+ */
+function endAtQuestionOrExclamation(title: string): string {
+  const lastMark = [...title.matchAll(/[?!](?=\s)/g)].pop();
+  if (lastMark?.index === undefined) return title;
+  const end = lastMark.index + 1;
+  return VENUE_HINT.test(title.slice(end)) ? title.slice(0, end) : title;
 }
 
 /** Authors before the quoted title; the year usually comes last, after the venue. */

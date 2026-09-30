@@ -92,12 +92,13 @@ fetched again.
 | 9   | [49] Snyder 2002                                            | Abstract `[test] Snyder - in trash`. Hover once (found), then **Move to Trash** and hover again                 | Before: shows `[test] Snyder - in trash`. After: not in library               | Online lookup runs. **Verified 2026-09-30** (trashed items are ignored)        |
 | 10  | The grouped citation covering [31], [35], [48]              | As above                                                                                                        | Three rows, each with its own result (rows 5, 1, 4)                           | Same, per row                                                                  |
 
-**Parser finding (2026-09-30):** a title ending in `?` or `!` runs into the
-venue, because `referenceParser.ts` ends the title only at the first `". "`.
-[47] Scherer 2005 parsed as "What are emotions? And how can they be measured?
-Social science information 44, 4 (2005), 695-729.", so the library search
-can't match it. That's why row 9 uses [49] instead. Once the parser is fixed,
-check [47] too (DOI `10.1177/0539018405058216`).
+**Parser finding (2026-09-30), fixed:** a title ending in `?` or `!` used to
+run into the venue, because the parser ended titles only at `". "`. [47]
+Scherer 2005 parsed as "What are emotions? And how can they be measured?
+Social science information 44, 4 (2005), 695-729." and wasn't found in the
+library. After the fix it parses as "What are emotions? And how can they be
+measured?" and is found. Keep [47] as a regression check (DOI
+`10.1177/0539018405058216`, in My Library, abstract `[test] Scherer - in trash`).
 
 ## Cross-citations inside the set
 

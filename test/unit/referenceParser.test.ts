@@ -105,6 +105,38 @@ describe("parseReferenceText", function () {
     assert.equal(result.year, "2024");
   });
 
+  it("ends a title at its final question mark instead of running into the venue", function () {
+    const result = parseReferenceText(
+      "[47] Klaus R Scherer. 2005. What are emotions? And how can they be measured? Social science information 44, 4 (2005), 695–729.",
+    );
+    assert.equal(result.authors, "Klaus R Scherer");
+    assert.equal(
+      result.title,
+      "What are emotions? And how can they be measured?",
+    );
+  });
+
+  it("ends a title at an exclamation mark followed by the venue", function () {
+    const result = parseReferenceText(
+      "[3] Jane Doe. 2021. Stop the bleeding! In Proceedings of X 2021. ACM, 12–19.",
+    );
+    assert.equal(result.title, "Stop the bleeding!");
+  });
+
+  it("keeps a question mark inside a title that ends with a full stop", function () {
+    const result = parseReferenceText(
+      "[8] Jane Doe. 2020. Is programming hard? A study of novices. In Proc. X. ACM.",
+    );
+    assert.equal(result.title, "Is programming hard? A study of novices");
+  });
+
+  it("keeps a question mark when what follows isn't a venue", function () {
+    const result = parseReferenceText(
+      "[6] Jane Doe. 2019. Who wins? Two players and a board",
+    );
+    assert.equal(result.title, "Who wins? Two players and a board");
+  });
+
   it("keeps parsing author-year style when the title itself contains quotes", function () {
     const result = parseReferenceText(
       '[5] Jane Doe. 2019. Why "vibe coding" fails. In Proc. X. ACM.',
