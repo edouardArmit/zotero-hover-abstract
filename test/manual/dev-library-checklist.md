@@ -110,12 +110,27 @@ Use Cmd+F on the quoted text to find the in-text marker, then hover it.
 Row 7 (A citing Pekrun [36], found in the group) also passed on 2026-09-30.
 
 **Known limitation (rows 14, 14b):** in D, Zotero shows a preview of the
-reference-list page instead of its citation popup, so there's no
-`.reference-row` for the plugin to read and it does nothing (no
-`parsed reference` line in the log). Zotero couldn't match D's citations to
-its reference list, likely because it has 500+ entries in dense columns. This
-is Zotero's reference detection, not a plugin bug. Possible future feature:
-read the reference text at the preview's destination instead.
+link's target page instead of its citation popup, for every citation tried
+([45], [376], [518], [554], [672]). There's then no `.reference-row` for the
+plugin to read, and no `parsed reference` line in the log. This comes from
+Zotero's own reference detection, not the plugin. Investigated 2026-09-30 by
+reading Zotero's reader code (`resource/reader/pdf/build/pdf.worker.mjs` in
+`omni.ja`):
+
+- Not the number of references: there's no cap in the code.
+- Not the citation format: D uses numbered `[n]` like A, B, C and E, which
+  work, and author-year (J) works too.
+- Not the heading: D has exactly one "REFERENCES" past the halfway point, as
+  required.
+- Not the links: the preview shows the link target, and the entry is on it.
+  Zotero discards a linked citation whose target page differs from the page
+  where it found the entry.
+
+What's left is Zotero failing to split D's reference list into entries or to
+match them. A plausible cause, unconfirmed: the splitter clusters entries by
+the gap between the `[n]` label and the text, which differs for 1-, 2- and
+3-digit labels. Possible future feature: when only a preview appears, read
+the reference text at the link's target.
 
 ## Parser and PDF-text cases
 
