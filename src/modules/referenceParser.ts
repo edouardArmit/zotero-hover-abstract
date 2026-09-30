@@ -30,6 +30,9 @@ export function parseReferenceText(rawText: string): ParsedReference {
   const quoted = parseQuotedTitleStyle(text);
   if (quoted) return { raw, doi, ...quoted };
 
+  const apa = parseApaStyle(text);
+  if (apa) return { raw, doi, ...apa };
+
   const yearMatch = text.match(YEAR_PATTERN);
   if (!yearMatch || yearMatch.index === undefined) {
     return { raw, doi };
@@ -44,13 +47,45 @@ export function parseReferenceText(rawText: string): ParsedReference {
   const afterYear = text
     .slice(yearMatch.index + yearMatch[0].length)
     .replace(/^\.\s*/, "");
-  const titleEnd = afterYear.indexOf(". ");
-  const title =
-    endAtQuestionOrExclamation(
-      (titleEnd === -1 ? afterYear : afterYear.slice(0, titleEnd)).trim(),
-    ) || undefined;
 
-  return { raw, authors, year: yearMatch[0], title, doi };
+  return { raw, authors, year: yearMatch[0], title: titleFrom(afterYear), doi };
+}
+
+// APA puts the year in parentheses right after the authors, optionally with a
+// letter suffix or a date: "Skinner, E. A. (1996). A guide to constructs...".
+const APA_YEAR_PATTERN = /\(((?:19|20)\d{2})[a-z]?(?:,[^)]*)?\)\.?/;
+
+/**
+ * Without this, the generic path finds "1996" inside "(1996)." and takes ")"
+ * as the title and "Skinner, E. A. (" as the authors. Applies only when the
+ * parenthesised year is the first year in the text, so ACM-style references
+ * ("Name. 2018. Title. ... (SIGCSE '19)") keep the generic path.
+ */
+function parseApaStyle(
+  text: string,
+): Omit<ParsedReference, "raw" | "doi"> | undefined {
+  const match = text.match(APA_YEAR_PATTERN);
+  if (!match || match.index === undefined) return undefined;
+  if (text.search(/(?:19|20)\d{2}/) !== match.index + 1) return undefined;
+
+  const authors = text.slice(0, match.index).trim() || undefined;
+  // APA authors end with a name or an initial ("Skinner, E. A."). A number
+  // there means the parenthesised year follows a venue's volume/issue instead,
+  // as in CACM style: "... SIGCSE Bull. 39, 2 (2007), 32-36.".
+  if (authors && /\d$/.test(authors)) return undefined;
+  const title = titleFrom(text.slice(match.index + match[0].length));
+  return { authors, year: match[1], title };
+}
+
+/** The title is everything up to the first ". ", minus a venue after "?"/"!". */
+function titleFrom(textAfterYear: string): string | undefined {
+  const rest = textAfterYear.trim();
+  const titleEnd = rest.indexOf(". ");
+  return (
+    endAtQuestionOrExclamation(
+      (titleEnd === -1 ? rest : rest.slice(0, titleEnd)).trim(),
+    ) || undefined
+  );
 }
 
 // A year or a page range such as "695–729": text that belongs to the venue.

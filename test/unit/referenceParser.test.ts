@@ -137,6 +137,81 @@ describe("parseReferenceText", function () {
     assert.equal(result.title, "Who wins? Two players and a board");
   });
 
+  it("parses an APA-style reference with the year in parentheses", function () {
+    const result = parseReferenceText(
+      "Skinner, E. A. (1996). A guide to constructs of control. Journal of Personality and Social Psychology, 71, 549–570.",
+    );
+    assert.equal(result.authors, "Skinner, E. A.");
+    assert.equal(result.year, "1996");
+    assert.equal(result.title, "A guide to constructs of control");
+  });
+
+  it("parses an APA-style reference with several authors and a DOI", function () {
+    const result = parseReferenceText(
+      "Kampylis, P., Berki, E., & Saariluoma, P. (2009). In-service and prospective teachers’ conceptions of creativity. Thinking Skills and Creativity, 4(1), 15–29. https://doi.org/10.1016/j.tsc.2008.10.001",
+    );
+    assert.equal(result.authors, "Kampylis, P., Berki, E., & Saariluoma, P.");
+    assert.equal(result.year, "2009");
+    assert.equal(
+      result.title,
+      "In-service and prospective teachers’ conceptions of creativity",
+    );
+    assert.equal(result.doi, "10.1016/j.tsc.2008.10.001");
+  });
+
+  it("keeps dots that aren't followed by a space inside an APA title", function () {
+    const result = parseReferenceText(
+      "Rane, N. (2023). ChatGPT and similar generative artificial intelligence (AI) for smart industry: Role, challenges and opportunities for industry 4.0, industry 5.0 and society 5.0. Innovation in Business and Strategic Management, 2(1), 10–17. https://www.reseaprojournals.com/ibsm/220",
+    );
+    assert.equal(result.authors, "Rane, N.");
+    assert.equal(
+      result.title,
+      "ChatGPT and similar generative artificial intelligence (AI) for smart industry: Role, challenges and opportunities for industry 4.0, industry 5.0 and society 5.0",
+    );
+  });
+
+  it("ends an APA title at its final question mark before the venue", function () {
+    const result = parseReferenceText(
+      "Scherer, K. R. (2005). What are emotions? And how can they be measured? Social Science Information, 44(4), 695–729.",
+    );
+    assert.equal(result.authors, "Scherer, K. R.");
+    assert.equal(
+      result.title,
+      "What are emotions? And how can they be measured?",
+    );
+  });
+
+  it("ends an APA title at an exclamation mark followed by an access date", function () {
+    const result = parseReferenceText(
+      "Magazine, T. A. A. I. (2022). Freaky ChatGPT fails that caught our eyes! Accessed: 2023-0122 https://analyticsindiamag.com/freaky-chatgpt-fails-that-caught-our-eyes/.",
+    );
+    assert.equal(result.title, "Freaky ChatGPT fails that caught our eyes!");
+  });
+
+  it("handles an APA year with a letter suffix", function () {
+    const result = parseReferenceText(
+      "Pekrun, R. (2006a). The control-value theory of achievement emotions. Educational Psychology Review, 18, 315–341.",
+    );
+    assert.equal(result.authors, "Pekrun, R.");
+    assert.equal(result.year, "2006");
+    assert.equal(
+      result.title,
+      "The control-value theory of achievement emotions",
+    );
+  });
+
+  it("doesn't treat a year after a venue's volume and issue as an APA year", function () {
+    const cacm =
+      "1. bennedsen, J. and caspersen, m.e. failure rates in introductory programming. SIGCSE Bull. 39, 2 (2007), 32–36.";
+    const result = parseReferenceText(cacm);
+    // Not an APA split: the "authors" would otherwise end at "39, 2".
+    assert.notEqual(
+      result.authors,
+      "1. bennedsen, J. and caspersen, m.e. failure rates in introductory programming. SIGCSE Bull. 39, 2",
+    );
+    assert.equal(result.year, "2007");
+  });
+
   it("keeps parsing author-year style when the title itself contains quotes", function () {
     const result = parseReferenceText(
       '[5] Jane Doe. 2019. Why "vibe coding" fails. In Proc. X. ACM.',
