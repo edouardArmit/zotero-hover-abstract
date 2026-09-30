@@ -87,7 +87,7 @@ fetched again.
 | 4   | [48] Shakil & Denny 2024                                    | My Library, **only** in subcollection `sub`, abstract `[test] Shakil - subcollection`                           | Shows `[test] Shakil - subcollection`                                           | Same                                                                           |
 | 5   | [31] Magana et al. 2023                                     | Not in any library                                                                                              | "No abstract found", library: not in your library                               | Crossref: no abstract. Semantic Scholar: found, heading names Semantic Scholar |
 | 6   | [45] Rubino 2024 (thesis)                                   | Not in any library                                                                                              | "No abstract found"                                                             | Neither source has an abstract. **Hover again**: log line ends with `(cached)` |
-| 7   | Pekrun 2006 (citing paper H), if A cites it                 | H lives in the group, with its real abstract                                                                    | Found, from the group (a My Library PDF citing a group item)                    | Same                                                                           |
+| 7   | [36] Pekrun 2006 (citing paper H)                           | H lives in the group, with its real abstract                                                                    | Found, from the group (a My Library PDF citing a group item)                    | Same                                                                           |
 | 8   | Any other reference in A (note which one)                   | My Library **and** group, both with empty abstracts                                                             | "No abstract" status for the library                                            | Online lookup runs (a library copy without an abstract doesn't stop it)        |
 | 9   | Any other reference in A (note which one)                   | Only copy is **in the trash**                                                                                   | Expected: not in library (unverified: check whether trashed items are excluded) | Online lookup runs                                                             |
 | 10  | The grouped citation covering [31], [35], [48]              | As above                                                                                                        | Three rows, each with its own result (rows 5, 1, 4)                             | Same, per row                                                                  |
@@ -95,24 +95,36 @@ fetched again.
 ## Cross-citations inside the set
 
 Citing papers that cite each other test lookups across libraries with real
-data. Confirm each on the first run and replace "likely" with the reference
-number.
+data. These were found by searching each PDF's extracted text (the
+`.zotero-ft-cache` file next to it in `storage/`) for the other items' titles.
+Use Cmd+F on the quoted text to find the in-text marker, then hover it.
 
-| #   | Hover                                                                         | Cited paper lives in | Expected                                            |
-| --- | ----------------------------------------------------------------------------- | -------------------- | --------------------------------------------------- |
-| 11  | In B (group), a reference that's in My Library only, e.g. one of C-L it cites | My Library           | Found. A PDF in the group can use My Library items. |
-| 12  | In J (My Library), Kasneci et al. 2023 (likely)                               | My Library (I)       | Found                                               |
-| 13  | In C (My Library), Luxton-Reilly et al. 2018 (likely)                         | My Library (D)       | Found                                               |
-| 14  | In M (group), Prather et al. or Denny et al. papers (likely)                  | My Library (C)       | Found                                               |
+| #   | Open           | Find                                    | Hover                  | Cited paper lives in | Expected                    | 2026-09-30 |
+| --- | -------------- | --------------------------------------- | ---------------------- | -------------------- | --------------------------- | ---------- |
+| 11  | B (group)      | `creating visual artifacts`             | [25] Kasneci           | My Library (I)       | Found, "from your library"  | pass       |
+| 12  | M (group)      | `[16]`                                  | [16] Kasneci           | My Library (I)       | Found, "from your library"  | pass       |
+| 13  | C (My Library) | `CodeHelp [32]`                         | [32] Liffiton CodeHelp | group (M)            | Found, "from group library" | pass       |
+| 14  | D (My Library) | `Notable qualitative studies`           | [279, 326, 376]        | My Library (E)       | [376] Lishinski found       | see below  |
+| 14b | D (My Library) | `approaches that we know are effective` | [518] Porter           | My Library (G)       | Found                       | see below  |
+
+Row 7 (A citing Pekrun [36], found in the group) also passed on 2026-09-30.
+
+**Known limitation (rows 14, 14b):** in D, Zotero shows a preview of the
+reference-list page instead of its citation popup, so there's no
+`.reference-row` for the plugin to read and it does nothing (no
+`parsed reference` line in the log). Zotero couldn't match D's citations to
+its reference list, likely because it has 500+ entries in dense columns. This
+is Zotero's reference detection, not a plugin bug. Possible future feature:
+read the reference text at the preview's destination instead.
 
 ## Parser and PDF-text cases
 
-| #   | Hover                                                                                                          | Expected                                                                                   |
-| --- | -------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
-| 15  | In H, I or J: an author-year citation such as "(Pekrun, 2006)"                                                 | Unverified whether Zotero's own popup appears for author-year styles. Record what happens. |
-| 16  | In D: a reference authored by "Simon" (single name)                                                            | Parsed without dropping the author                                                         |
-| 17  | Any reference whose title in the PDF text lost a hyphen at a line break, or has a ligature (fi, fl) or accents | Found in the library through the fuzzy title match                                         |
-| 18  | A reference with "et al." in its author list                                                                   | Parsed without an author called "al."                                                      |
+| #   | Hover                                                                                                          | Expected                                                                                                                                      |
+| --- | -------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| 15  | In H, I or J: an author-year citation such as "(Pekrun, 2006)"                                                 | **Verified 2026-09-30:** Zotero's popup does appear for author-year styles (J, "Rane (2023)"), and the plugin handles it like a numbered one. |
+| 16  | In D: a reference authored by "Simon" (single name)                                                            | Parsed without dropping the author                                                                                                            |
+| 17  | Any reference whose title in the PDF text lost a hyphen at a line break, or has a ligature (fi, fl) or accents | Found in the library through the fuzzy title match                                                                                            |
+| 18  | A reference with "et al." in its author list                                                                   | Parsed without an author called "al."                                                                                                         |
 
 ## Lifecycle checks
 
