@@ -135,21 +135,31 @@ reading Zotero's reader code (`resource/reader/pdf/build/pdf.worker.mjs` in
   where it found the entry.
 
 What's left is Zotero failing to split D's reference list into entries or to
-match them. A plausible cause, unconfirmed: the splitter clusters entries by
-the gap between the `[n]` label and the text, which differs for 1-, 2- and
-3-digit labels. Possible future feature: when only a preview appears, read
+match them. Three-digit reference numbers aren't the cause either: F (150
+numbered references) gets popups for [9], [55] and [124]. So the cause is
+specific to D's layout. Possible future feature: when only a preview appears, read
 the reference text at the link's target.
+
+**K has no citation popups either** (tested [3] and [44]). K is an arXiv
+preprint exported from Google Docs: its in-text `[n]` aren't internal links,
+its list uses `1.` labels, and the "References" heading is on page 155 of 216,
+followed by a long appendix. Zotero doesn't detect its references. Treat it as
+a preprint-layout limitation. K is still useful for the big-PDF performance
+check.
 
 ## Parser and PDF-text cases
 
-| #   | Hover                                                                                                          | Expected                                                                                                                                      |
-| --- | -------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| 15  | In H, I or J: an author-year citation such as "(Pekrun, 2006)"                                                 | **Verified 2026-09-30:** Zotero's popup does appear for author-year styles (J, "Rane (2023)"), and the plugin handles it like a numbered one. |
-| 16  | In D: a reference authored by "Simon" (single name)                                                            | Parsed without dropping the author                                                                                                            |
-| 17  | Any reference whose title in the PDF text lost a hyphen at a line break, or has a ligature (fi, fl) or accents | Found in the library through the fuzzy title match                                                                                            |
-| 18  | A reference with "et al." in its author list                                                                   | Parsed without an author called "al."                                                                                                         |
+| #   | Hover                                                                          | Expected                                                                                                                                      |
+| --- | ------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| 15  | In H, I or J: an author-year citation such as "(Pekrun, 2006)"                 | **Verified 2026-09-30:** Zotero's popup does appear for author-year styles (J, "Rane (2023)"), and the plugin handles it like a numbered one. |
+| 16  | In C: [8] Busjahn, Schulte, Sharif, Simon, ... (search `novice gaze patterns`) | Parsed with "Simon" kept as an author. **Verified 2026-09-30**. (D was the original target but never gets popups, see above.)                 |
+| 17  | In A: [48] Shakil & Denny, printed as "LargeScale" in the PDF                  | Found through the fuzzy title match (log: `fuzzy title match ... similarity 1.00`). **Verified 2026-09-30**                                   |
+| 18  | A reference with "et al." in its author list                                   | Parsed without an author called "al."                                                                                                         |
 
 ## Lifecycle checks
+
+All verified 2026-09-29/30 (restored tabs: C came back `reader-unloaded`, loaded
+when clicked, and hovering worked straight away).
 
 Run with `npm run start`. Log lines appear in the dev Zotero's console and in
 `.scaffold/logs/`.
@@ -157,7 +167,7 @@ Run with `npm run start`. Log lines appear in the dev Zotero's console and in
 - [ ] Startup logs `[Zotero Hover Abstract] [hoverabstract] starting (code loaded at ...)`.
 - [ ] Settings (app menu > Settings) shows the _Zotero Hover Abstract_ pane.
 - [ ] Changing a plugin setting (the online toggle or the API key) takes effect on the next hover and clears the cache: a previously `(cached)` reference is fetched again.
-- [ ] Opening K (216 pages) and hovering still works, with no long freeze.
+- [ ] Opening K (216 pages) takes a few seconds to search and jump, with no freeze. (Its citations get no popups, see above.)
 - [ ] Closing a PDF tab logs no errors.
 - [ ] Hot reload (save any file in `src/`) shows a new `code loaded at` time, and hovering still works.
 - [ ] Quit and restart Zotero with a PDF tab open: once the restored tab loads, hovering works without reopening it.
